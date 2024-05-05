@@ -19,14 +19,13 @@ public class ChatClientGUI extends JFrame {
     private List<String> currentParticipants;
 
     public ChatClientGUI() {
-        setTitle("Chat Client");
+        setTitle("ChatABC");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(300, 150);
         setLocationRelativeTo(null);
         chatRooms = new ArrayList<>();
         currentParticipants = new ArrayList<>();
 
-        // Establish the connection immediately
         initializeConnection();
 
         showLoginPage();
@@ -40,6 +39,7 @@ public class ChatClientGUI extends JFrame {
             writer = new PrintWriter(socket.getOutputStream(), true);
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Error connecting to server: " + e.getMessage());
+            initializeConnection();
         }
     }
 
@@ -57,6 +57,11 @@ public class ChatClientGUI extends JFrame {
                 if (!username.isEmpty()) {
                     // Send a "login [username]" message to the server
                     writer.println("login " + username);
+
+                    /*
+                     * wait for response, connect correctly
+                     * 
+                     */
 
                     // Proceed to the chat list page
                     showChatListPage();
@@ -78,7 +83,6 @@ public class ChatClientGUI extends JFrame {
 
     // Step 2: Chat List Page
     private void showChatListPage() {
-        // Set a larger size for the main chat list
         setSize(500, 400);
         setLocationRelativeTo(null);
 
@@ -101,19 +105,6 @@ public class ChatClientGUI extends JFrame {
         topPanel.add(leftTopPanel, BorderLayout.WEST);
         topPanel.add(rightTopPanel, BorderLayout.EAST);
 
-        // Create New Room Button
-        createRoomButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String newRoom = JOptionPane.showInputDialog("Enter new room name:");
-                if (newRoom != null && !newRoom.trim().isEmpty()) {
-                    writer.println("create " + username);
-                    chatRooms.add(newRoom); // Add to the list locally
-                    joinChatRoom(newRoom, true); // Join and create this room on the server
-                }
-            }
-        });
-
         // Logout Button
         logoutButton.addActionListener(new ActionListener() {
             @Override
@@ -121,7 +112,24 @@ public class ChatClientGUI extends JFrame {
                 writer.println("logout " + username);
                 username = null;
                 setSize(300, 150);
-                showLoginPage(); // Return to the login page
+                showLoginPage();
+            }
+        });
+
+        // Create New Room Button
+        createRoomButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String newRoom = JOptionPane.showInputDialog("Enter new room name:");
+                if (newRoom != null && !newRoom.trim().isEmpty()) {
+                    writer.println("create " + username);
+                    /*
+                     * wait for create new room
+                     * 
+                     * 
+                     */
+                    chatRooms.add(newRoom); // Add to the list locally
+                }
             }
         });
 
@@ -131,7 +139,7 @@ public class ChatClientGUI extends JFrame {
             roomButton.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    joinChatRoom(room, false); // Join the existing chat room
+                    joinChatRoom(room);
                 }
             });
             chatButtonPanel.add(roomButton);
@@ -150,15 +158,15 @@ public class ChatClientGUI extends JFrame {
     }
 
     // Step 3: Join a Chat Room
-    private void joinChatRoom(String roomName, boolean create) {
+    private void joinChatRoom(String roomName) {
         currentRoom = roomName;
         currentParticipants.clear();
-        sendRoomJoinRequest(create);
+        sendRoomJoinRequest();
         showChatRoomPage();
     }
 
     // Send the join or create request to the server
-    private void sendRoomJoinRequest(boolean create) {
+    private void sendRoomJoinRequest() {
         writer.println("join " + currentRoom + " " + username);
 
         // Start a separate thread to receive messages

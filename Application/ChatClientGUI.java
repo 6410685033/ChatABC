@@ -21,7 +21,7 @@ public class ChatClientGUI extends JFrame {
     public ChatClientGUI() {
         setTitle("Chat Client");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(350, 200); // Specific size for the login page
+        setSize(300, 150); // Adjusted size similar to an input dialog
         setLocationRelativeTo(null); // Center on the screen
         chatRooms = new ArrayList<>();
         currentParticipants = new ArrayList<>();

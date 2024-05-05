@@ -1,134 +1,73 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h> /* close */
+#include <unistd.h>
+#include <arpa/inet.h>
 
-#define MAX_MSG 100
-#define PORTNO1 15139
-#define PORTNO2 25139
+#define SERVER_IP "127.0.0.1" // Replace with the appropriate server IP
+#define PORT 7777
+#define BUFFER_SIZE 1024
 
-int main(int argc, char *argv[])
-{
+int main() {
+    int sock;
+    struct sockaddr_in server_address;
+    char buffer[BUFFER_SIZE];
+    char name[BUFFER_SIZE];
 
-    // for port 15139
-    int sd, rc, i;
-    int n = 0;
-    char sendBuff[1025];
-    char recvBuff[1024];
-
-    struct sockaddr_in localAddr, servAddr;
-    struct hostent *h;
-
-    memset(recvBuff, '0', sizeof(recvBuff));
-
-    if (argc != 5)
-    {
-        fprintf(stderr, "usage: %s <hostname> <name> <surname> <birthdate(BE)>\n", argv[0]);
-        exit(1);
+    // Create a socket
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Socket creation error");
+        exit(EXIT_FAILURE);
     }
 
-    h = gethostbyname(argv[1]);
-    if (h == NULL)
-    {
-        printf("%s: unknown host '%s'\n", argv[0], argv[1]);
-        exit(1);
+    // Configure server address
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(PORT);
+
+    // Convert IP addresses from text to binary
+    if (inet_pton(AF_INET, SERVER_IP, &server_address.sin_addr) <= 0) {
+        perror("Invalid address or address not supported");
+        close(sock);
+        exit(EXIT_FAILURE);
     }
 
-    servAddr.sin_family = h->h_addrtype;
-    memcpy((char *)&servAddr.sin_addr.s_addr, h->h_addr_list[0], h->h_length);
-    servAddr.sin_port = htons(PORTNO1);
-
-    /* create socket */
-    sd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sd < 0)
-    {
-        perror("cannot open socket ");
-        exit(1);
+    // Connect to the server
+    if (connect(sock, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+        perror("Connection failed");
+        close(sock);
+        exit(EXIT_FAILURE);
     }
 
-    memset(sendBuff, '0', sizeof(sendBuff));
+    printf("Enter your name: ");
+    fgets(name, BUFFER_SIZE, stdin);
+    name[strcspn(name, "\n")] = '\0'; // Remove the newline character
 
-    /* bind any port number */
-    localAddr.sin_family = AF_INET;
-    localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    localAddr.sin_port = htons(0);
+    // Send the name to the server
+    send(sock, name, strlen(name), 0);
 
-    rc = bind(sd, (struct sockaddr *)&localAddr, sizeof(localAddr));
-    if (rc < 0)
-    {
-        printf("%s: cannot bind port TCP %u\n", argv[0], PORTNO1);
-        perror("error ");
-        exit(1);
+    // Read and send messages
+    while (1) {
+        printf("Enter message to send (or 'exit' to quit): ");
+        fgets(buffer, BUFFER_SIZE, stdin);
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove the newline character
+
+        if (strcmp(buffer, "exit") == 0) {
+            printf("Closing the connection.\n");
+            break;
+        }
+
+        // Send message to server
+        send(sock, buffer, strlen(buffer), 0);
+
+        // Receive server response
+        int bytes_received = recv(sock, buffer, BUFFER_SIZE - 1, 0);
+        if (bytes_received > 0) {
+            buffer[bytes_received] = '\0';
+            printf("Server response: %s\n", buffer);
+        }
     }
 
-    /* connect to server */
-    rc = connect(sd, (struct sockaddr *)&servAddr, sizeof(servAddr));
-    if (rc < 0)
-    {
-        perror("cannot connect ");
-        exit(1);
-    }
-
-    snprintf(sendBuff, MAX_MSG, "%s %s\n%s\n", argv[2], argv[3], argv[4]);
-    n = send(sd, sendBuff, strlen(sendBuff) + 1, 0);
-    if (n < 0)
-        error("cannot send data");
-
-    if (read(sd, recvBuff, sizeof(recvBuff) - 1) > 0)
-    {
-        recvBuff[n] = '\0';
-        printf("%s\n", recvBuff);
-    }
-
-    close(sd);
-
-    // for port 25139
-    int sockfd = 0;
-    struct sockaddr_in serv_addr;
-
-    memset(recvBuff, '0', sizeof(recvBuff));
-    memset(sendBuff, '0', sizeof(sendBuff));
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        printf("\n Error : Could not create socket \n");
-        return 1;
-    }
-
-    memset(&serv_addr, '0', sizeof(serv_addr));
-
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORTNO2);
-
-    if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
-    {
-        printf("\n inet_pton error occured\n");
-        return 1;
-    }
-
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    {
-        printf("\n Error : Connect Failed \n");
-        return 1;
-    }
-
-    int bytesRead = read(sockfd, recvBuff, sizeof(recvBuff) - 1);
-    if (bytesRead > 0)
-    {
-        recvBuff[bytesRead] = '\0';
-        printf("%s\n", recvBuff);
-    }
-
-    snprintf(sendBuff, sizeof(sendBuff), "Bye\n");
-    if (send(sockfd, sendBuff, strlen(sendBuff), 0) < 0)
-    {
-        perror("Error sending 'Bye'");
-    }
-    sleep(5);
-    close(sockfd);
+    // Close the socket
+    close(sock);
     return 0;
 }

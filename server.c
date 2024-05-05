@@ -9,11 +9,71 @@
 #define MAX_CLIENTS 100
 #define BUFFER_SIZE 1024
 
+#define NAME_SIZE 20
+#define MAX_ATTENDEES 10
+#define ATTENDEE_NAME_SIZE 15
 typedef struct {
     int socket;
     char room[BUFFER_SIZE];
     char username[BUFFER_SIZE];
 } Client;
+
+// Define the Chat struct
+typedef struct {
+    char chat_name[NAME_SIZE];
+    char attendances[MAX_ATTENDEES][ATTENDEE_NAME_SIZE];
+    int num_attendees;
+} Chat;
+
+void create_chat(Chat *chat, const char *chat_name) {
+    strncpy(chat->chat_name, chat_name, NAME_SIZE - 1); // set the chat name
+    chat->chat_name[NAME_SIZE - 1] = '\0'; // null-terminate the string
+    chat->num_attendees = 0; // set the number of attendees to 0
+}
+
+int join_chat(Chat *chat, const char *attendee) {
+    // Check if the chat room is full
+    if (chat->num_attendees >= MAX_ATTENDEES) {
+        printf("Chat room is full. Can't add more attendees.\n");
+        return -1;
+    }
+
+    strncpy(chat->attendances[chat->num_attendees], attendee, ATTENDEE_NAME_SIZE - 1); // add the attendee
+    chat->attendances[chat->num_attendees][ATTENDEE_NAME_SIZE - 1] = '\0'; // null-terminate the string
+    chat->num_attendees++; // increase the number of attendees
+
+    return 0;
+}
+
+int leave_chat(Chat *chat, const char *attendee) {
+    int index = -1;
+
+    // Find the attendee index in the array
+    for (int i = 0; i < chat->num_attendees; i++) {
+        if (strcmp(chat->attendances[i], attendee) == 0) {
+            index = i;
+            break;
+        }
+    }
+
+    // If attendee not found, return error
+    if (index == -1) {
+        printf("Attendee '%s' not found in the chat.\n", attendee);
+        return -1;
+    }
+
+    // Shift remaining attendees to remove the target attendee
+    for (int i = index; i < chat->num_attendees - 1; i++) {
+        strncpy(chat->attendances[i], chat->attendances[i + 1], ATTENDEE_NAME_SIZE - 1);
+        chat->attendances[i][ATTENDEE_NAME_SIZE - 1] = '\0';
+    }
+
+    // Clear the last element as it is now empty
+    chat->attendances[chat->num_attendees - 1][0] = '\0';
+    chat->num_attendees--;
+
+    return 0; // Success
+}
 
 Client clients[MAX_CLIENTS];
 int client_count = 0;

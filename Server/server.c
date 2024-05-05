@@ -3,23 +3,21 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include "chat.c"
+#include <pthread.h>
 
 #define PORT 7777
-#define MAX_CLIENTS 100
+#define MAX_MSG 100
 #define BUFFER_SIZE 1024
 #define SUCCESS 0
 #define ERROR 1
 
 #define END_LINE '\n'
-#define MAX_MSG 100
 
-// Client struct definition
+// Structure for passing client socket information to a thread
 typedef struct {
     int socket;
-    char room[NAME_SIZE];
-    char username[BUFFER_SIZE];
-} Client;
+    struct sockaddr_in client_addr;
+} ClientInfo;
 
 int read_line(int newSd, char *line_to_return) {
     static int rcv_ptr = 0;
@@ -61,12 +59,48 @@ int read_line(int newSd, char *line_to_return) {
     }
 }
 
+// Function that handles communication with a client
+void *handle_client(void *arg) {
+    ClientInfo *client_info = (ClientInfo *)arg;
+    int client_socket = client_info->socket;
+    struct sockaddr_in client_addr = client_info->client_addr;
+    char line[MAX_MSG];
+    char sendBuff[BUFFER_SIZE];
+
+    // Print a message when a client connects
+    printf("Client connected from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
+    // Initialize the line buffer
+    memset(line, 0x0, MAX_MSG);
+
+    // Receive data from the client
+    while (read_line(client_socket, line) != ERROR) {
+        // Print the received message to the server console
+        printf("Received from client: %s", line);
+
+        // Respond to the client
+        snprintf(sendBuff, sizeof(sendBuff), "Server received: %s", line);
+        if (send(client_socket, sendBuff, strlen(sendBuff), 0) < 0) {
+            perror("Cannot send data");
+            close(client_socket);
+            break;
+        }
+
+        // Clear the line buffer for the next message
+        memset(line, 0x0, MAX_MSG);
+    }
+
+    // Close the client socket and free the allocated memory
+    close(client_socket);
+    free(client_info);
+    return NULL;
+}
+
 int main(int argc, char *argv[]) {
     int sd, newSd;
     socklen_t cliLen;
     struct sockaddr_in servAddr, cliAddr;
-    char line[MAX_MSG];
-    char sendBuff[BUFFER_SIZE];
+    pthread_t tid;
 
     // Create a server socket
     sd = socket(AF_INET, SOCK_STREAM, 0);
@@ -101,28 +135,14 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // Print a message when a client connects
-        printf("Client connected from %s:%d\n", inet_ntoa(cliAddr.sin_addr), ntohs(cliAddr.sin_port));
+        // Allocate and initialize client info
+        ClientInfo *client_info = malloc(sizeof(ClientInfo));
+        client_info->socket = newSd;
+        client_info->client_addr = cliAddr;
 
-        // Initialize the line buffer
-        memset(line, 0x0, MAX_MSG);
-
-        // Receive data from the client
-        while (read_line(newSd, line) != ERROR) {
-            // Print the received message to the server console
-            printf("Received from client: %s", line);
-
-            // Respond to the client
-            snprintf(sendBuff, sizeof(sendBuff), "Server received: %s", line);
-            if (send(newSd, sendBuff, strlen(sendBuff), 0) < 0) {
-                perror("Cannot send data");
-                close(newSd);
-                break;
-            }
-
-            // Clear the line buffer for the next message
-            memset(line, 0x0, MAX_MSG);
-        }
+        // Create a new thread for each client
+        pthread_create(&tid, NULL, handle_client, (void *)client_info);
+        pthread_detach(tid); // Detach the thread to allow automatic cleanup
     }
 
     // Close the server socket

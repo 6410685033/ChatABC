@@ -118,9 +118,9 @@ public class ChatClientGUI extends JFrame {
         logoutButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                writer.println("logout " + username);
                 username = null;
                 setSize(300, 150);
-                writer.println("logout " + username);
                 showLoginPage(); // Return to the login page
             }
         });
@@ -159,8 +159,7 @@ public class ChatClientGUI extends JFrame {
 
     // Send the join or create request to the server
     private void sendRoomJoinRequest(boolean create) {
-        String prefix = create ? "create" : "join";
-        writer.println(prefix + currentRoom + " " + username);
+        writer.println("join " + currentRoom + " " + username);
 
         // Start a separate thread to receive messages
         new Thread(() -> {
@@ -218,6 +217,7 @@ public class ChatClientGUI extends JFrame {
         showParticipantsButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                writer.println("attendances " + currentRoom);
                 JOptionPane.showMessageDialog(null, "Participants: " + String.join(", ", currentParticipants));
             }
         });

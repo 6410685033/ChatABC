@@ -21,11 +21,26 @@ public class ChatClientGUI extends JFrame {
     public ChatClientGUI() {
         setTitle("Chat Client");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(300, 150); // Adjusted size similar to an input dialog
-        setLocationRelativeTo(null); // Center on the screen
+        setSize(300, 150);
+        setLocationRelativeTo(null);
         chatRooms = new ArrayList<>();
         currentParticipants = new ArrayList<>();
+
+        // Establish the connection immediately
+        initializeConnection();
+
         showLoginPage();
+    }
+
+    // Establish the server connection once during startup
+    private void initializeConnection() {
+        try {
+            socket = new Socket("127.0.0.1", 7777); // Replace with the appropriate server IP/port
+            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            writer = new PrintWriter(socket.getOutputStream(), true);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Error connecting to server: " + e.getMessage());
+        }
     }
 
     // Step 1: Login Page
@@ -34,12 +49,17 @@ public class ChatClientGUI extends JFrame {
         JTextField nameField = new JTextField(15);
         JButton loginButton = new JButton("Login");
 
+        // Login Button
         loginButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 username = nameField.getText().trim();
                 if (!username.isEmpty()) {
-                    showChatListPage(); // Proceed to chat list page
+                    // Send a "login [username]" message to the server
+                    writer.println("login " + username);
+
+                    // Proceed to the chat list page
+                    showChatListPage();
                 } else {
                     JOptionPane.showMessageDialog(null, "Please enter a valid username.");
                 }
@@ -98,8 +118,8 @@ public class ChatClientGUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 username = null;
-                setSize(300, 150);
-                showLoginPage();
+                setSize(300, 150); // Restore the size to the login page dimensions
+                showLoginPage(); // Return to the login page
             }
         });
 
@@ -131,43 +151,35 @@ public class ChatClientGUI extends JFrame {
     private void joinChatRoom(String roomName, boolean create) {
         currentRoom = roomName;
         currentParticipants.clear();
-        initializeConnection(create);
+        sendRoomJoinRequest(create);
         showChatRoomPage();
     }
 
-    // Initialize server connection and room joining
-    private void initializeConnection(boolean create) {
-        try {
-            socket = new Socket("127.0.0.1", 7777); // Replace with the appropriate server IP/port
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            writer = new PrintWriter(socket.getOutputStream(), true);
+    // Send the join or create request to the server
+    private void sendRoomJoinRequest(boolean create) {
+        String prefix = create ? "CREATE:" : "";
+        writer.println(prefix + username + ":" + currentRoom); // Send username and room info
 
-            // Prefix "CREATE:" to request room creation
-            String prefix = create ? "CREATE:" : "";
-            writer.println(prefix + username + ":" + currentRoom); // Send username and room info
+        // Start a separate thread to receive messages
+        new Thread(() -> {
+            String response;
+            try {
+                while ((response = reader.readLine()) != null) {
+                    chatArea.append(response + "\n");
 
-            new Thread(() -> {
-                String response;
-                try {
-                    while ((response = reader.readLine()) != null) {
-                        chatArea.append(response + "\n");
-
-                        // Simulate receiving participant list updates
-                        if (response.startsWith("Participants:")) {
-                            String[] participants = response.substring(13).split(",");
-                            currentParticipants.clear();
-                            for (String participant : participants) {
-                                currentParticipants.add(participant.trim());
-                            }
+                    // Simulate receiving participant list updates
+                    if (response.startsWith("Participants:")) {
+                        String[] participants = response.substring(13).split(",");
+                        currentParticipants.clear();
+                        for (String participant : participants) {
+                            currentParticipants.add(participant.trim());
                         }
                     }
-                } catch (IOException e) {
-                    chatArea.append("Disconnected from server.\n");
                 }
-            }).start();
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(this, "Error connecting to server: " + e.getMessage());
-        }
+            } catch (IOException e) {
+                chatArea.append("Disconnected from server.\n");
+            }
+        }).start();
     }
 
     // Step 4: Chat Room Page

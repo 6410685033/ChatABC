@@ -107,6 +107,7 @@ public class ChatClientGUI extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 String newRoom = JOptionPane.showInputDialog("Enter new room name:");
                 if (newRoom != null && !newRoom.trim().isEmpty()) {
+                    writer.println("create " + username);
                     chatRooms.add(newRoom); // Add to the list locally
                     joinChatRoom(newRoom, true); // Join and create this room on the server
                 }
@@ -118,7 +119,8 @@ public class ChatClientGUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 username = null;
-                setSize(300, 150); // Restore the size to the login page dimensions
+                setSize(300, 150);
+                writer.println("logout " + username);
                 showLoginPage(); // Return to the login page
             }
         });
@@ -157,8 +159,8 @@ public class ChatClientGUI extends JFrame {
 
     // Send the join or create request to the server
     private void sendRoomJoinRequest(boolean create) {
-        String prefix = create ? "CREATE:" : "";
-        writer.println(prefix + username + ":" + currentRoom); // Send username and room info
+        String prefix = create ? "create" : "join";
+        writer.println(prefix + currentRoom + " " + username);
 
         // Start a separate thread to receive messages
         new Thread(() -> {
@@ -197,7 +199,7 @@ public class ChatClientGUI extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 String message = messageField.getText().trim();
                 if (!message.isEmpty()) {
-                    writer.println(username + " (" + currentRoom + "): " + message);
+                    writer.println("message" + currentRoom + " " + username + " " + message);
                     messageField.setText("");
                 }
             }

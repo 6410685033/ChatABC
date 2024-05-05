@@ -199,7 +199,7 @@ public class ChatClientGUI extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 String message = messageField.getText().trim();
                 if (!message.isEmpty()) {
-                    writer.println("message" + currentRoom + " " + username + " " + message);
+                    writer.println("message " + currentRoom + " " + username + " " + message);
                     messageField.setText("");
                 }
             }
@@ -209,14 +209,8 @@ public class ChatClientGUI extends JFrame {
         leaveRoomButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                try {
-                    writer.close();
-                    reader.close();
-                    socket.close();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-                showChatListPage(); // Return to the chat list page
+                writer.println("leave " + currentRoom + " " + username);
+                showChatListPage();
             }
         });
 

@@ -3,179 +3,129 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <pthread.h>
+#include "chat.c"
 
 #define PORT 7777
 #define MAX_CLIENTS 100
 #define BUFFER_SIZE 1024
+#define SUCCESS 0
+#define ERROR 1
 
-#define NAME_SIZE 20
-#define MAX_ATTENDEES 10
-#define ATTENDEE_NAME_SIZE 15
+#define END_LINE '\n'
+#define MAX_MSG 100
+
+// Client struct definition
 typedef struct {
     int socket;
-    char room[BUFFER_SIZE];
+    char room[NAME_SIZE];
     char username[BUFFER_SIZE];
 } Client;
 
-// Define the Chat struct
-typedef struct {
-    char chat_name[NAME_SIZE];
-    char attendances[MAX_ATTENDEES][ATTENDEE_NAME_SIZE];
-    int num_attendees;
-} Chat;
+int read_line(int newSd, char *line_to_return) {
+    static int rcv_ptr = 0;
+    static char rcv_msg[MAX_MSG];
+    static int n;
+    int offset = 0;
 
-void create_chat(Chat *chat, const char *chat_name) {
-    strncpy(chat->chat_name, chat_name, NAME_SIZE - 1); // set the chat name
-    chat->chat_name[NAME_SIZE - 1] = '\0'; // null-terminate the string
-    chat->num_attendees = 0; // set the number of attendees to 0
-}
-
-int join_chat(Chat *chat, const char *attendee) {
-    // Check if the chat room is full
-    if (chat->num_attendees >= MAX_ATTENDEES) {
-        printf("Chat room is full. Can't add more attendees.\n");
-        return -1;
-    }
-
-    strncpy(chat->attendances[chat->num_attendees], attendee, ATTENDEE_NAME_SIZE - 1); // add the attendee
-    chat->attendances[chat->num_attendees][ATTENDEE_NAME_SIZE - 1] = '\0'; // null-terminate the string
-    chat->num_attendees++; // increase the number of attendees
-
-    return 0;
-}
-
-int leave_chat(Chat *chat, const char *attendee) {
-    int index = -1;
-
-    // Find the attendee index in the array
-    for (int i = 0; i < chat->num_attendees; i++) {
-        if (strcmp(chat->attendances[i], attendee) == 0) {
-            index = i;
-            break;
-        }
-    }
-
-    // If attendee not found, return error
-    if (index == -1) {
-        printf("Attendee '%s' not found in the chat.\n", attendee);
-        return -1;
-    }
-
-    // Shift remaining attendees to remove the target attendee
-    for (int i = index; i < chat->num_attendees - 1; i++) {
-        strncpy(chat->attendances[i], chat->attendances[i + 1], ATTENDEE_NAME_SIZE - 1);
-        chat->attendances[i][ATTENDEE_NAME_SIZE - 1] = '\0';
-    }
-
-    // Clear the last element as it is now empty
-    chat->attendances[chat->num_attendees - 1][0] = '\0';
-    chat->num_attendees--;
-
-    return 0; // Success
-}
-
-Client clients[MAX_CLIENTS];
-int client_count = 0;
-pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-void *handle_client(void *arg) {
-    Client *client = (Client *)arg;
-    char buffer[BUFFER_SIZE];
-    int bytes_read;
-
-    while ((bytes_read = read(client->socket, buffer, BUFFER_SIZE - 1)) > 0) {
-        buffer[bytes_read] = '\0';
-        pthread_mutex_lock(&client_mutex);
-        for (int i = 0; i < client_count; i++) {
-            if (clients[i].socket != client->socket && strcmp(clients[i].room, client->room) == 0) {
-                write(clients[i].socket, buffer, bytes_read);
+    while (1) {
+        if (rcv_ptr == 0) {
+            // Read data from the socket
+            memset(rcv_msg, 0x0, MAX_MSG);
+            n = recv(newSd, rcv_msg, MAX_MSG, 0);
+            if (n < 0) {
+                perror("Cannot receive data");
+                return ERROR;
+            } else if (n == 0) {
+                printf("Connection closed by client\n");
+                close(newSd);
+                return ERROR;
             }
         }
-        pthread_mutex_unlock(&client_mutex);
-    }
 
-    // Client disconnect
-    close(client->socket);
-    pthread_mutex_lock(&client_mutex);
-    for (int i = 0; i < client_count; i++) {
-        if (clients[i].socket == client->socket) {
-            clients[i] = clients[client_count - 1];
-            client_count--;
-            break;
+        // Copy bytes to line_to_return until a newline is found
+        while (rcv_ptr < n && rcv_msg[rcv_ptr] != END_LINE) {
+            line_to_return[offset++] = rcv_msg[rcv_ptr++];
+        }
+
+        // If the end of a line is reached
+        if (rcv_ptr < n && rcv_msg[rcv_ptr] == END_LINE) {
+            line_to_return[offset++] = END_LINE;
+            rcv_ptr++;
+            return offset;
+        }
+
+        // If the buffer is exhausted but no newline was found
+        if (rcv_ptr == n) {
+            rcv_ptr = 0;
         }
     }
-    pthread_mutex_unlock(&client_mutex);
-    free(client);
-    return NULL;
 }
 
-int main() {
-    int server_socket, client_socket;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t client_addr_len = sizeof(client_addr);
-    pthread_t tid;
+int main(int argc, char *argv[]) {
+    int sd, newSd;
+    socklen_t cliLen;
+    struct sockaddr_in servAddr, cliAddr;
+    char line[MAX_MSG];
+    char sendBuff[BUFFER_SIZE];
 
-    // Create server socket
-    if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        perror("Socket failed");
-        exit(1);
+    // Create a server socket
+    sd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sd < 0) {
+        perror("Cannot open socket");
+        return ERROR;
     }
 
-    // Set server address parameters
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(PORT);
+    // Set up the server address
+    memset(&servAddr, 0, sizeof(servAddr));
+    servAddr.sin_family = AF_INET;
+    servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servAddr.sin_port = htons(PORT);
 
-    // Bind socket to port
-    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
-        perror("Bind failed");
-        close(server_socket);
-        exit(1);
+    // Bind socket to the address and port
+    if (bind(sd, (struct sockaddr *)&servAddr, sizeof(servAddr)) < 0) {
+        perror("Cannot bind port");
+        close(sd);
+        return ERROR;
     }
 
     // Listen for incoming connections
-    if (listen(server_socket, 5) == -1) {
-        perror("Listen failed");
-        close(server_socket);
-        exit(1);
-    }
-
-    printf("Server listening on port %d...\n", PORT);
+    listen(sd, 5);
+    printf("%s: waiting for data on port TCP %u\n", argv[0], PORT);
 
     while (1) {
-        if ((client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len)) == -1) {
-            perror("Accept failed");
+        // Accept an incoming connection
+        cliLen = sizeof(cliAddr);
+        newSd = accept(sd, (struct sockaddr *)&cliAddr, &cliLen);
+        if (newSd < 0) {
+            perror("Cannot accept connection");
             continue;
         }
 
-        // Create a new client struct
-        Client *new_client = malloc(sizeof(Client));
-        new_client->socket = client_socket;
+        // Print a message when a client connects
+        printf("Client connected from %s:%d\n", inet_ntoa(cliAddr.sin_addr), ntohs(cliAddr.sin_port));
 
-        // Read username and room from the client
-        char initial_message[BUFFER_SIZE];
-        int initial_len = read(client_socket, initial_message, BUFFER_SIZE - 1);
-        if (initial_len > 0) {
-            initial_message[initial_len] = '\0';
-            char *colon = strchr(initial_message, ':');
-            if (colon != NULL) {
-                *colon = '\0';
-                strcpy(new_client->username, initial_message);
-                strcpy(new_client->room, colon + 1);
+        // Initialize the line buffer
+        memset(line, 0x0, MAX_MSG);
+
+        // Receive data from the client
+        while (read_line(newSd, line) != ERROR) {
+            // Print the received message to the server console
+            printf("Received from client: %s", line);
+
+            // Respond to the client
+            snprintf(sendBuff, sizeof(sendBuff), "Server received: %s", line);
+            if (send(newSd, sendBuff, strlen(sendBuff), 0) < 0) {
+                perror("Cannot send data");
+                close(newSd);
+                break;
             }
+
+            // Clear the line buffer for the next message
+            memset(line, 0x0, MAX_MSG);
         }
-
-        // Add the new client to the list
-        pthread_mutex_lock(&client_mutex);
-        clients[client_count++] = *new_client;
-        pthread_mutex_unlock(&client_mutex);
-
-        // Create a new thread for the client
-        pthread_create(&tid, NULL, &handle_client, new_client);
-        pthread_detach(tid);
     }
 
-    close(server_socket);
+    // Close the server socket
+    close(sd);
     return 0;
 }

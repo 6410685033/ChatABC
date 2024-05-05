@@ -98,8 +98,8 @@ public class ChatClientGUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 username = null;
-                chatRooms.clear();
-                showLoginPage(); // Return to the login page
+                setSize(300, 150);
+                showLoginPage();
             }
         });
 

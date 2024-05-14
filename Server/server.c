@@ -1,133 +1,118 @@
+// server.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <pthread.h>
+#include "chat.c"
 
 #define PORT 7777
-#define MAX_MSG 100
 #define BUFFER_SIZE 1024
-#define SUCCESS 0
-#define ERROR 1
+#define MAX_MSG 100
+#define MAX_TOKENS 4
+#define MAX_CHAT 4
+#define MAX_CLIENTS 100
 
-#define END_LINE '\n'
 
-// Structure for passing client socket information to a thread
+// Client struct definition
 typedef struct {
     int socket;
-    struct sockaddr_in client_addr;
-} ClientInfo;
+    char room[NAME_SIZE];
+    char username[BUFFER_SIZE];
+} Client;
+
+Client clients[MAX_CLIENTS];  // Array of clients
+int num_clients = 0;  // Track the number of connected clients
+
+void broadcast_message(const char *message) {
+    for (int i = 0; i < num_clients; i++) {
+        if (send(clients[i].socket, message, strlen(message), 0) < 0) {
+            perror("Broadcast failed");
+            continue;
+        }
+    }
+}
+
 
 int read_line(int newSd, char *line_to_return) {
     static int rcv_ptr = 0;
-    static char rcv_msg[MAX_MSG];
-    static int n;
+    static char rcv_msg[MAX_MSG] = {0};
+    static int n = 0;
     int offset = 0;
 
     while (1) {
         if (rcv_ptr == 0) {
-            // Read data from the socket
-            memset(rcv_msg, 0x0, MAX_MSG);
+            memset(rcv_msg, 0x0, MAX_MSG);  // Clear the buffer
             n = recv(newSd, rcv_msg, MAX_MSG, 0);
             if (n < 0) {
                 perror("Cannot receive data");
-                return ERROR;
+                return -1;
             } else if (n == 0) {
                 printf("Connection closed by client\n");
                 close(newSd);
-                return ERROR;
+                return -1;
             }
         }
 
-        // Copy bytes to line_to_return until a newline is found
-        while (rcv_ptr < n && rcv_msg[rcv_ptr] != END_LINE) {
+        while (rcv_ptr < n && rcv_msg[rcv_ptr] != '\n') {
             line_to_return[offset++] = rcv_msg[rcv_ptr++];
         }
 
-        // If the end of a line is reached
-        if (rcv_ptr < n && rcv_msg[rcv_ptr] == END_LINE) {
-            line_to_return[offset++] = END_LINE;
+        if (rcv_ptr < n && rcv_msg[rcv_ptr] == '\n') {
+            line_to_return[offset++] = '\n';
             rcv_ptr++;
             return offset;
         }
 
-        // If the buffer is exhausted but no newline was found
         if (rcv_ptr == n) {
             rcv_ptr = 0;
         }
     }
 }
 
-// Function that handles communication with a client
-void *handle_client(void *arg) {
-    ClientInfo *client_info = (ClientInfo *)arg;
-    int client_socket = client_info->socket;
-    struct sockaddr_in client_addr = client_info->client_addr;
-    char line[MAX_MSG];
-    char sendBuff[BUFFER_SIZE];
+char** decode(char* line) {
+    static char *tokens[MAX_TOKENS];  // static storage for return
+    int n = 0;
+    char *token = strtok(line, " ");  // Use " " instead of ' '
 
-    // Print a message when a client connects
-    printf("Client connected from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-
-    // Initialize the line buffer
-    memset(line, 0x0, MAX_MSG);
-
-    // Receive data from the client
-    while (read_line(client_socket, line) != ERROR) {
-        // Print the received message to the server console
-        printf("Received from client: %s", line);
-
-        // Respond to the client
-        snprintf(sendBuff, sizeof(sendBuff), "Server received: %s", line);
-        if (send(client_socket, sendBuff, strlen(sendBuff), 0) < 0) {
-            perror("Cannot send data");
-            close(client_socket);
-            break;
-        }
-
-        // Clear the line buffer for the next message
-        memset(line, 0x0, MAX_MSG);
+    while (token != NULL && n < MAX_TOKENS) {
+        tokens[n++] = token;
+        token = strtok(NULL, " ");
     }
 
-    // Close the client socket and free the allocated memory
-    close(client_socket);
-    free(client_info);
-    return NULL;
+    return tokens;
 }
 
 int main(int argc, char *argv[]) {
     int sd, newSd;
     socklen_t cliLen;
     struct sockaddr_in servAddr, cliAddr;
-    pthread_t tid;
+    char line[MAX_MSG];
+    char sendBuff[BUFFER_SIZE];
 
-    // Create a server socket
+    Chat* chat_list[MAX_CHAT] = {0};  // Initialize to NULL
+
     sd = socket(AF_INET, SOCK_STREAM, 0);
     if (sd < 0) {
         perror("Cannot open socket");
-        return ERROR;
+        return 1;
     }
 
-    // Set up the server address
     memset(&servAddr, 0, sizeof(servAddr));
     servAddr.sin_family = AF_INET;
     servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servAddr.sin_port = htons(PORT);
 
-    // Bind socket to the address and port
     if (bind(sd, (struct sockaddr *)&servAddr, sizeof(servAddr)) < 0) {
         perror("Cannot bind port");
         close(sd);
-        return ERROR;
+        return 1;
     }
 
-    // Listen for incoming connections
     listen(sd, 5);
-    printf("%s: waiting for data on port TCP %u\n", argv[0], PORT);
+    printf("Server waiting for data on port TCP %u\n", PORT);
 
     while (1) {
-        // Accept an incoming connection
         cliLen = sizeof(cliAddr);
         newSd = accept(sd, (struct sockaddr *)&cliAddr, &cliLen);
         if (newSd < 0) {
@@ -135,17 +120,75 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // Allocate and initialize client info
-        ClientInfo *client_info = malloc(sizeof(ClientInfo));
-        client_info->socket = newSd;
-        client_info->client_addr = cliAddr;
+        if (num_clients < MAX_CLIENTS) {
+        clients[num_clients].socket = newSd;
+        strncpy(clients[num_clients].room, "", NAME_SIZE);  // Initialize with no room
+        strncpy(clients[num_clients].username, "", BUFFER_SIZE);  // No username initially
+        num_clients++;
+        } else {
+            printf("Maximum client limit reached.\n");
+            close(newSd);  // Close the new socket as it can't be handled
+            continue;
+        }
 
-        // Create a new thread for each client
-        pthread_create(&tid, NULL, handle_client, (void *)client_info);
-        pthread_detach(tid); // Detach the thread to allow automatic cleanup
+        printf("Client connected from %s:%d\n", inet_ntoa(cliAddr.sin_addr), ntohs(cliAddr.sin_port));
+        memset(line, 0x0, MAX_MSG);
+
+        while (read_line(newSd, line) != -1) {
+            printf("Received from client: %s", line);
+            char** command = decode(line);
+
+            // Handle commands
+            if (strcmp(command[0], "login") == 0) {
+                // Implement login logic
+            } else if (strcmp(command[0], "logout") == 0) {
+                // Implement logout logic
+            } else if (strcmp(command[0], "create") == 0) {
+                printf("Creating chat room...\n");
+                if (command[1] == NULL) {
+                    printf("Error: Chat name must be provided.\n");
+                    continue;
+                }
+                
+                // Find the next available slot in the chat list
+                int i = 0;
+                for (; i < MAX_CHAT && chat_list[i] != NULL; i++);
+
+                if (i == MAX_CHAT) {
+                    printf("Error: Maximum number of chats reached.\n");
+                    continue;
+                }
+
+                // Allocate memory for the new chat room
+                chat_list[i] = malloc(sizeof(Chat));
+                if (chat_list[i] == NULL) {
+                    perror("Failed to allocate memory for new chat room");
+                    continue;
+                }
+
+                // Initialize the chat room with the provided name
+                create_chat(chat_list[i], command[1]);
+
+                // Broadcast message to all connected clients that a new chat room has been created
+                char broadcast_msg[BUFFER_SIZE];
+                snprintf(broadcast_msg, sizeof(broadcast_msg), "New chat room created: %s\n", command[1]);
+                broadcast_message(broadcast_msg);
+                printf("Chat room created: %s\n", command[1]);
+            }
+            else if (strcmp(command[0], "join") == 0) {
+                // Join chat logic, ensure room exists in chat_list
+            } else if (strcmp(command[0], "leave") == 0) {
+                // Leave chat logic
+            } else if (strcmp(command[0], "message") == 0) {
+                // Message sending logic
+            } else if (strcmp(command[0], "attendances") == 0) {
+                // Attendance checking logic
+            }
+
+            memset(line, 0x0, MAX_MSG);  // Reset line buffer
+        }
     }
 
-    // Close the server socket
     close(sd);
     return 0;
 }

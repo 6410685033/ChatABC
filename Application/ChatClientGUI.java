@@ -1,7 +1,6 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -25,49 +24,32 @@ public class ChatClientGUI extends JFrame {
         setLocationRelativeTo(null);
         chatRooms = new ArrayList<>();
         currentParticipants = new ArrayList<>();
-
         initializeConnection();
-
         showLoginPage();
     }
 
-    // Establish the server connection once during startup
     private void initializeConnection() {
         try {
-            socket = new Socket("127.0.0.1", 7777); // Replace with the appropriate server IP/port
+            socket = new Socket("127.0.0.1", 7777);
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream(), true);
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Error connecting to server: " + e.getMessage());
-            initializeConnection();
+            System.exit(1);
         }
     }
 
-    // Step 1: Login Page
     private void showLoginPage() {
         JPanel loginPanel = new JPanel(new GridLayout(2, 1, 0, 10));
         JTextField nameField = new JTextField(15);
         JButton loginButton = new JButton("Login");
-
-        // Login Button
-        loginButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                username = nameField.getText().trim();
-                if (!username.isEmpty()) {
-                    // Send a "login [username]" message to the server
-                    writer.println("login " + username);
-
-                    /*
-                     * wait for response, connect correctly
-                     * 
-                     */
-
-                    // Proceed to the chat list page
-                    showChatListPage();
-                } else {
-                    JOptionPane.showMessageDialog(null, "Please enter a valid username.");
-                }
+        loginButton.addActionListener(e -> {
+            username = nameField.getText().trim();
+            if (!username.isEmpty()) {
+                writer.println("login " + username);
+                showChatListPage();
+            } else {
+                JOptionPane.showMessageDialog(null, "Please enter a valid username.");
             }
         });
 
@@ -76,15 +58,12 @@ public class ChatClientGUI extends JFrame {
         inputPanel.add(nameField);
         loginPanel.add(inputPanel);
         loginPanel.add(loginButton);
-
         setContentPane(loginPanel);
         setVisible(true);
     }
 
-    // Step 2: Chat List Page
     private void showChatListPage() {
         setSize(500, 400);
-        setLocationRelativeTo(null);
 
         JPanel listPanel = new JPanel(new BorderLayout());
         JPanel chatButtonPanel = new JPanel(new GridLayout(0, 1));
@@ -93,105 +72,50 @@ public class ChatClientGUI extends JFrame {
         JButton logoutButton = new JButton("Logout");
         JLabel loggedInLabel = new JLabel("Logged in as: " + username, JLabel.RIGHT);
 
-        // Adjust logout button position to the top-left
+        logoutButton.addActionListener(e -> {
+            writer.println("logout " + username);
+            username = null;
+            setSize(300, 150);
+            showLoginPage();
+        });
+
+        createRoomButton.addActionListener(e -> {
+            String newRoom = JOptionPane.showInputDialog("Enter new room name:");
+            if (newRoom != null && !newRoom.trim().isEmpty()) {
+                writer.println("create " + newRoom);
+                chatRooms.add(newRoom);
+            }
+        });
+
+        chatRooms.forEach(room -> {
+            JButton roomButton = new JButton(room);
+            roomButton.addActionListener(e -> joinChatRoom(room));
+            chatButtonPanel.add(roomButton);
+        });
+
         JPanel leftTopPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         leftTopPanel.add(logoutButton);
-
-        // Adjust username display to the top-right
         JPanel rightTopPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         rightTopPanel.add(loggedInLabel);
 
-        // Add both panels to the top panel
         topPanel.add(leftTopPanel, BorderLayout.WEST);
         topPanel.add(rightTopPanel, BorderLayout.EAST);
 
-        // Logout Button
-        logoutButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                writer.println("logout " + username);
-                username = null;
-                setSize(300, 150);
-                showLoginPage();
-            }
-        });
-
-        // Create New Room Button
-        createRoomButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String newRoom = JOptionPane.showInputDialog("Enter new room name:");
-                if (newRoom != null && !newRoom.trim().isEmpty()) {
-                    writer.println("create " + username);
-                    /*
-                     * wait for create new room
-                     * 
-                     * 
-                     */
-                    chatRooms.add(newRoom); // Add to the list locally
-                }
-            }
-        });
-
-        // Buttons for each available chat room
-        for (String room : chatRooms) {
-            JButton roomButton = new JButton(room);
-            roomButton.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    joinChatRoom(room);
-                }
-            });
-            chatButtonPanel.add(roomButton);
-        }
-
-        // Arrange the bottom panel
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        bottomPanel.add(createRoomButton);
-
         listPanel.add(new JScrollPane(chatButtonPanel), BorderLayout.CENTER);
-        listPanel.add(topPanel, BorderLayout.NORTH); // Add the top panel containing the logout button and username label
-        listPanel.add(bottomPanel, BorderLayout.SOUTH);
+        listPanel.add(topPanel, BorderLayout.NORTH);
+        listPanel.add(new JPanel(new FlowLayout(FlowLayout.CENTER)).add(createRoomButton), BorderLayout.SOUTH);
 
         setContentPane(listPanel);
         setVisible(true);
     }
 
-    // Step 3: Join a Chat Room
     private void joinChatRoom(String roomName) {
         currentRoom = roomName;
         currentParticipants.clear();
-        sendRoomJoinRequest();
+        writer.println("join " + currentRoom + " " + username);
         showChatRoomPage();
     }
 
-    // Send the join or create request to the server
-    private void sendRoomJoinRequest() {
-        writer.println("join " + currentRoom + " " + username);
-
-        // Start a separate thread to receive messages
-        new Thread(() -> {
-            String response;
-            try {
-                while ((response = reader.readLine()) != null) {
-                    chatArea.append(response + "\n");
-
-                    // Simulate receiving participant list updates
-                    if (response.startsWith("Participants:")) {
-                        String[] participants = response.substring(13).split(",");
-                        currentParticipants.clear();
-                        for (String participant : participants) {
-                            currentParticipants.add(participant.trim());
-                        }
-                    }
-                }
-            } catch (IOException e) {
-                chatArea.append("Disconnected from server.\n");
-            }
-        }).start();
-    }
-
-    // Step 4: Chat Room Page
     private void showChatRoomPage() {
         chatArea = new JTextArea();
         chatArea.setEditable(false);
@@ -200,34 +124,22 @@ public class ChatClientGUI extends JFrame {
         JButton leaveRoomButton = new JButton("Leave Room");
         JButton showParticipantsButton = new JButton("Show Participants");
 
-        // Send Message Button
-        sendButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String message = messageField.getText().trim();
-                if (!message.isEmpty()) {
-                    writer.println("message " + currentRoom + " " + username + " " + message);
-                    messageField.setText("");
-                }
+        sendButton.addActionListener(e -> {
+            String message = messageField.getText().trim();
+            if (!message.isEmpty()) {
+                writer.println("message " + currentRoom + " " + username + " " + message);
+                messageField.setText("");
             }
         });
 
-        // Leave Room Button
-        leaveRoomButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                writer.println("leave " + currentRoom + " " + username);
-                showChatListPage();
-            }
+        leaveRoomButton.addActionListener(e -> {
+            writer.println("leave " + currentRoom + " " + username);
+            showChatListPage();
         });
 
-        // Show Participants Button
-        showParticipantsButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                writer.println("attendances " + currentRoom);
-                JOptionPane.showMessageDialog(null, "Participants: " + String.join(", ", currentParticipants));
-            }
+        showParticipantsButton.addActionListener(e -> {
+            writer.println("attendances " + currentRoom);
+            JOptionPane.showMessageDialog(null, "Participants: " + String.join(", ", currentParticipants));
         });
 
         JPanel topPanel = new JPanel(new BorderLayout());
@@ -248,6 +160,6 @@ public class ChatClientGUI extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new ChatClientGUI());
+        SwingUtilities.invokeLater(ChatClientGUI::new);
     }
 }

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include "test_chat.c"
+#include "chat.c"
 
 #define PORT 7777
 #define MAX_CLIENTS 100

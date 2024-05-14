@@ -13,10 +13,20 @@ typedef struct {
 } Chat;
 
 void create_chat(Chat *chat, const char *chat_name) {
-    strncpy(chat->chat_name, chat_name, NAME_SIZE - 1);
-    chat->chat_name[NAME_SIZE - 1] = '\0';
+    if (chat == NULL) {
+        fprintf(stderr, "Error: chat pointer is NULL.\n");
+        return;  // Optionally, you could change the function return type to int and return an error code here
+    }
+    if (chat_name == NULL) {
+        fprintf(stderr, "Warning: chat_name is NULL. Initializing with default name.\n");
+        strcpy(chat->chat_name, "Default Chat");  // Use a default name if none provided
+    } else {
+        strncpy(chat->chat_name, chat_name, NAME_SIZE - 1);
+        chat->chat_name[NAME_SIZE - 1] = '\0';  // Ensures null termination
+    }
     chat->num_attendees = 0;
 }
+
 
 int join_chat(Chat *chat, const char *attendee) {
     if (chat->num_attendees >= MAX_ATTENDEES) {

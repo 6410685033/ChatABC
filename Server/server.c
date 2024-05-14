@@ -137,12 +137,21 @@ int main(int argc, char *argv[]) {
         while (read_line(newSd, line) != -1) {
             printf("Received from client: %s", line);
             char** command = decode(line);
+            size_t len = strlen(command[0]);
+            
+            if (command[0][len - 1] == '\n') {
+                command[0][len - 1] = '\0';  // Remove the newline character if present
+            }
+
+            printf("Command: %s\n", command[0]);
 
             // Handle commands
             if (strcmp(command[0], "login") == 0) {
+                printf("Login\n");
                 // Implement login logic
             } else if (strcmp(command[0], "logout") == 0) {
                 // Implement logout logic
+                printf("Logout\n");
             } else if (strcmp(command[0], "create") == 0) {
                 printf("Creating chat room...\n");
                 if (command[1] == NULL) {
@@ -174,15 +183,43 @@ int main(int argc, char *argv[]) {
                 snprintf(broadcast_msg, sizeof(broadcast_msg), "New chat room created: %s\n", command[1]);
                 broadcast_message(broadcast_msg);
                 printf("Chat room created: %s\n", command[1]);
+                printf("Room created: %s\n",chat_list[i]->chat_name);
             }
             else if (strcmp(command[0], "join") == 0) {
                 // Join chat logic, ensure room exists in chat_list
+                printf("join chat rooms...\n");
             } else if (strcmp(command[0], "leave") == 0) {
                 // Leave chat logic
+                printf("leave chat rooms...\n");
             } else if (strcmp(command[0], "message") == 0) {
                 // Message sending logic
+                printf("message chat rooms...\n");
             } else if (strcmp(command[0], "attendances") == 0) {
                 // Attendance checking logic
+                printf("attendances chat rooms...\n");
+            } else if (strcmp(command[0], "list") == 0) {
+
+                printf("Listing chat rooms...\n");
+
+                char room_info[BUFFER_SIZE];
+                char response[BUFFER_SIZE] = "room_list\n"; // Start with a header for the response
+
+                // Loop through all chat rooms and collect their names
+                for (int i = 0; i < MAX_CHAT; i++) {
+                    if (chat_list[i] != NULL) { // Ensure the chat room slot is not empty
+                        snprintf(room_info, sizeof(room_info), "%d: %s\n", i + 1, chat_list[i]->chat_name);
+                        strcat(response, room_info); // Append each room's name to the response
+                        printf("Room %d: %s\n", i + 1, chat_list[i]->chat_name);
+                    }
+                }
+
+                // Send the response to the client that requested the room list
+                if (send(newSd, response, strlen(response), 0) < 0) {
+                    perror("Failed to send chat room list");
+                }
+            }
+            else {
+                printf("Invalid command\n");
             }
 
             memset(line, 0x0, MAX_MSG);  // Reset line buffer

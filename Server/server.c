@@ -202,14 +202,14 @@ int main(int argc, char *argv[]) {
                 printf("Listing chat rooms...\n");
 
                 char room_info[BUFFER_SIZE];
-                char response[BUFFER_SIZE] = "room_list\n"; // Start with a header for the response
+                char response[BUFFER_SIZE] = "list_rooms "; // Start with a header for the response
 
                 // Loop through all chat rooms and collect their names
                 for (int i = 0; i < MAX_CHAT; i++) {
                     if (chat_list[i] != NULL) { // Ensure the chat room slot is not empty
                         snprintf(room_info, sizeof(room_info), "%d: %s\n", i + 1, chat_list[i]->chat_name);
                         strcat(response, room_info); // Append each room's name to the response
-                        printf("Room %d: %s\n", i + 1, chat_list[i]->chat_name);
+                        printf("Room %d: %s ", i + 1, chat_list[i]->chat_name);
                     }
                 }
 

@@ -9,6 +9,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class ChatClientGUI extends JFrame {
     private String username;
     private Socket socket;
@@ -19,6 +20,8 @@ public class ChatClientGUI extends JFrame {
     private List<String> chatRooms;
     private String currentRoom;
     private List<String> currentParticipants;
+
+    private JPanel chatButtonPanel = new JPanel(new GridLayout(0, 1));
 
     public ChatClientGUI() {
         setTitle("ChatABC");
@@ -46,7 +49,6 @@ public class ChatClientGUI extends JFrame {
     private void listenToServer() {
         String line;
         try {
-            System.out.println("line = reader.readLine()) == null");
             while ((line = reader.readLine()) != null) {
                 handleServerResponse(line);
             }
@@ -56,37 +58,24 @@ public class ChatClientGUI extends JFrame {
     }
 
     public void handleServerResponse(String response) {
-        System.out.println("handleServerResponse occur");
+        System.out.println("handleServerResponse occur: " + response);
         if (response.startsWith("list_rooms")) {
             SwingUtilities.invokeLater(() -> updateChatRooms(response));
         }
     }
 
     private void updateChatRooms(String roomsResponse) {
-        System.out.println("updateChatRooms occur");
+        System.out.println("updateChatRooms occur: " + roomsResponse);
         String[] parts = roomsResponse.split(" ");
-        
+
         chatRooms.clear();
         for (int i = 1; i < parts.length; i++) {
             chatRooms.add(parts[i]);
         }
-        updateChatListUI();
+        showChatListPage();
     }
-
-    private void updateChatListUI() {
-        JPanel chatButtonPanel = new JPanel(new GridLayout(0, 1));
-        chatRooms.forEach(room -> {
-            JButton roomButton = new JButton(room);
-            roomButton.addActionListener(e -> joinChatRoom(room));
-            chatButtonPanel.add(roomButton);
-        });
-        JScrollPane scrollPane = new JScrollPane(chatButtonPanel);
-        JPanel listPanel = (JPanel) getContentPane().getComponents()[0];
-        listPanel.remove(1); // Assuming the second component is the scroll pane
-        listPanel.add(scrollPane, BorderLayout.CENTER);
-        listPanel.revalidate();
-        listPanel.repaint();
-    }
+    
+    
 
     private void showLoginPage() {
         JPanel loginPanel = new JPanel(new GridLayout(2, 1, 0, 10));
@@ -113,9 +102,9 @@ public class ChatClientGUI extends JFrame {
 
     private void showChatListPage() {
         setSize(500, 400);
-    
+        
         JPanel listPanel = new JPanel(new BorderLayout());
-        JPanel chatButtonPanel = new JPanel(new GridLayout(0, 1));
+        JScrollPane scrollPane = new JScrollPane(chatButtonPanel); // Only one JScrollPane
         JPanel topPanel = new JPanel(new BorderLayout());
         JButton createRoomButton = new JButton("Create New Room");
         JButton logoutButton = new JButton("Logout");
@@ -142,11 +131,7 @@ public class ChatClientGUI extends JFrame {
             refreshChatRooms();
         });
     
-        chatRooms.forEach(room -> {
-            JButton roomButton = new JButton(room);
-            roomButton.addActionListener(e -> joinChatRoom(room));
-            chatButtonPanel.add(roomButton);
-        });
+        updateChatRoomButtons();
     
         JPanel leftTopPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         leftTopPanel.add(logoutButton);
@@ -168,7 +153,17 @@ public class ChatClientGUI extends JFrame {
     private void refreshChatRooms() {
         chatRooms.clear();
         writer.println("list_rooms");
-        // This assumes you have some mechanism on the server to handle "list_rooms" command and the client to handle the response
+    }
+
+    private void updateChatRoomButtons() {
+        chatButtonPanel.removeAll(); // Clear existing buttons
+        for (String room : chatRooms) {
+            JButton roomButton = new JButton(room);
+            roomButton.addActionListener(e -> joinChatRoom(room));
+            chatButtonPanel.add(roomButton);
+        }
+        chatButtonPanel.revalidate();
+        chatButtonPanel.repaint();
     }
 
     private void joinChatRoom(String roomName) {

@@ -1,6 +1,6 @@
 import javax.swing.*;
 
-import Models.Chat;
+// import Models.Chat;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -36,10 +36,56 @@ public class ChatClientGUI extends JFrame {
             socket = new Socket("127.0.0.1", 7777);
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream(), true);
+            new Thread(this::listenToServer).start();
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Error connecting to server: " + e.getMessage());
             System.exit(1);
         }
+    }
+
+    private void listenToServer() {
+        String line;
+        try {
+            System.out.println("line = reader.readLine()) == null");
+            while ((line = reader.readLine()) != null) {
+                handleServerResponse(line);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();  // Consider a reconnect or alerting the user
+        }
+    }
+
+    public void handleServerResponse(String response) {
+        System.out.println("handleServerResponse occur");
+        if (response.startsWith("list_rooms")) {
+            SwingUtilities.invokeLater(() -> updateChatRooms(response));
+        }
+    }
+
+    private void updateChatRooms(String roomsResponse) {
+        System.out.println("updateChatRooms occur");
+        String[] parts = roomsResponse.split(" ");
+        
+        chatRooms.clear();
+        for (int i = 1; i < parts.length; i++) {
+            chatRooms.add(parts[i]);
+        }
+        updateChatListUI();
+    }
+
+    private void updateChatListUI() {
+        JPanel chatButtonPanel = new JPanel(new GridLayout(0, 1));
+        chatRooms.forEach(room -> {
+            JButton roomButton = new JButton(room);
+            roomButton.addActionListener(e -> joinChatRoom(room));
+            chatButtonPanel.add(roomButton);
+        });
+        JScrollPane scrollPane = new JScrollPane(chatButtonPanel);
+        JPanel listPanel = (JPanel) getContentPane().getComponents()[0];
+        listPanel.remove(1); // Assuming the second component is the scroll pane
+        listPanel.add(scrollPane, BorderLayout.CENTER);
+        listPanel.revalidate();
+        listPanel.repaint();
     }
 
     private void showLoginPage() {

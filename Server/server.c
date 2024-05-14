@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
             } else if (strcmp(command[0], "attendances") == 0) {
                 // Attendance checking logic
                 printf("attendances chat rooms...\n");
-            } else if (strcmp(command[0], "list") == 0) {
+            } else if (strcmp(command[0], "list_rooms") == 0) {
 
                 printf("Listing chat rooms...\n");
 

@@ -85,6 +85,7 @@ public class ChatClientGUI extends JFrame {
             username = nameField.getText().trim();
             if (!username.isEmpty()) {
                 writer.println("login " + username);
+                refreshChatRooms();
                 showChatListPage();
             } else {
                 JOptionPane.showMessageDialog(null, "Please enter a valid username.");
@@ -121,6 +122,7 @@ public class ChatClientGUI extends JFrame {
         createRoomButton.addActionListener(e -> {
             String newRoom = JOptionPane.showInputDialog("Enter new room name:");
             if (newRoom != null && !newRoom.trim().isEmpty()) {
+                newRoom = newRoom.replace("\n", "");
                 writer.println("create " + newRoom);
                 chatRooms.add(newRoom);
                 refreshChatRooms();

@@ -83,6 +83,42 @@ char** decode(char* line) {
     return tokens;
 }
 
+char* response_list_room(Chat* chat_list[], int chat_list_length) {
+    // Allocate memory for the combined response
+    char* response = (char*)malloc(BUFFER_SIZE * chat_list_length);
+    if (response == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+    response[0] = '\0'; // Initialize the response string to be empty
+    strcpy(response, "list_rooms "); // Initialize the response with "list_rooms"
+
+    // Buffer to store individual room info
+    char room_info[BUFFER_SIZE];
+
+    // Loop through all chat rooms and collect their names
+    for (int i = 0; i < chat_list_length; i++) {
+        // Remove newline characters from the chat name
+        char* chat_name = chat_list[i]->chat_name;
+        char* newline_pos;
+        while ((newline_pos = strchr(chat_name, '\n')) != NULL) {
+            *newline_pos = '\0';
+        }
+        
+        // Append the chat name to the response string
+        snprintf(room_info, sizeof(room_info), "%s", chat_name);
+        strcat(response, room_info);
+        
+        // Add a space if this is not the last room
+        if (i < chat_list_length - 1) {
+            strcat(response, " ");
+        }
+    }
+
+    strcat(response, "\n");
+    return response;
+}
+
 int main(int argc, char *argv[]) {
     int sd, newSd;
     socklen_t cliLen;
@@ -90,7 +126,8 @@ int main(int argc, char *argv[]) {
     char line[MAX_MSG];
     char sendBuff[BUFFER_SIZE];
 
-    Chat* chat_list[MAX_CHAT] = {0};  // Initialize to NULL
+    Chat* chat_list[MAX_CHAT] = {0};
+    int chat_list_length = 0;
 
     sd = socket(AF_INET, SOCK_STREAM, 0);
     if (sd < 0) {
@@ -177,6 +214,7 @@ int main(int argc, char *argv[]) {
 
                 // Initialize the chat room with the provided name
                 create_chat(chat_list[i], command[1]);
+                chat_list_length++;
 
                 // Broadcast message to all connected clients that a new chat room has been created
                 char broadcast_msg[BUFFER_SIZE];
@@ -200,18 +238,7 @@ int main(int argc, char *argv[]) {
             } else if (strcmp(command[0], "list_rooms") == 0) {
                 printf("Listing chat rooms...\n");
 
-                char room_info[BUFFER_SIZE];
-                char response[BUFFER_SIZE] = "list_rooms"; // Start with a header for the response
-                int response_len = strlen(response);
-
-                // Loop through all chat rooms and collect their names
-                for (int i = 0; i < MAX_CHAT; i++) {
-                    if (chat_list[i] != NULL) { // Ensure the chat room slot is not empty
-                        snprintf(room_info, sizeof(room_info), " %s", chat_list[i]->chat_name);
-                        strcat(response + response_len, room_info);
-                        response_len += strlen(room_info); // Update response length
-                    }
-                }
+                char* response = response_list_room(chat_list, chat_list_length);
 
                 printf("Send response...\n");
                 printf("%s\n", response);

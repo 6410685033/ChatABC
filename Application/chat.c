@@ -1,3 +1,4 @@
+// chat.c
 #include <stdio.h>
 #include <string.h>
 
@@ -11,51 +12,33 @@ typedef struct {
     int num_attendees;
 } Chat;
 
-Chat* create_chat(const char *chat_name) {
-    // Allocate memory for a new Chat structure
-    Chat* new_chat = (Chat*) malloc(sizeof(Chat));
-    if (new_chat == NULL) {
-        perror("Failed to allocate memory for new chat");
-        return NULL;  // Return NULL if memory allocation fails
+void create_chat(Chat *chat, const char *chat_name) {
+    if (chat == NULL) {
+        fprintf(stderr, "Error: chat pointer is NULL.\n");
+        return;  // Optionally, you could change the function return type to int and return an error code here
     }
-
-    // Safely copy the chat name into the structure
-    strncpy(new_chat->chat_name, chat_name, NAME_SIZE - 1);
-    new_chat->chat_name[NAME_SIZE - 1] = '\0';  // Ensure null-termination
-
-    // Initialize the number of attendees
-    new_chat->num_attendees = 0;
-
-    // Return the newly created chat structure
-    return new_chat;
-}
-
-// Function to find a room by name in a NULL-terminated array of Chat pointers
-Chat* find_room(Chat* chat_list[], const char* room_name) {
-    for (int i = 0; chat_list[i] != NULL; i++) {  // Loop through each room until NULL is encountered
-        if (strcmp(room_name, chat_list[i]->chat_name) == 0) {  // Compare room names
-            return chat_list[i];  // Return the matching room
-        }
-    }
-    return NULL;  // Return NULL if no room matches
-}
-
-void join_chat(const char* room_name, const char* username, Chat* chat_list[]) {
-    Chat* chat = find_room(chat_list, room_name);  // Find the correct chat room by name
-    if (chat != NULL && chat->num_attendees < MAX_ATTENDEES) {
-        // Allocate memory for new username and add it to the list
-        chat->attendances[chat->num_attendees] = malloc(strlen(username) + 1);
-        if (chat->attendances[chat->num_attendees] != NULL) {
-            strcpy(chat->attendances[chat->num_attendees], username);
-            chat->num_attendees++;
-        }
+    if (chat_name == NULL) {
+        fprintf(stderr, "Warning: chat_name is NULL. Initializing with default name.\n");
+        strcpy(chat->chat_name, "Default Chat");  // Use a default name if none provided
     } else {
-        if (chat == NULL) {
-            printf("Chat room '%s' not found.\n", room_name);
-        } else {
-            printf("Chat room '%s' is full.\n", room_name);
-        }
+        strncpy(chat->chat_name, chat_name, NAME_SIZE - 1);
+        chat->chat_name[NAME_SIZE - 1] = '\0';  // Ensures null termination
     }
+    chat->num_attendees = 0;
+}
+
+
+int join_chat(Chat *chat, const char *attendee) {
+    if (chat->num_attendees >= MAX_ATTENDEES) {
+        printf("Chat room is full. Can't add more attendees.\n");
+        return -1;
+    }
+
+    strncpy(chat->attendances[chat->num_attendees], attendee, ATTENDEE_NAME_SIZE - 1);
+    chat->attendances[chat->num_attendees][ATTENDEE_NAME_SIZE - 1] = '\0';
+    chat->num_attendees++;
+
+    return 0;
 }
 
 int leave_chat(Chat *chat, const char *attendee) {

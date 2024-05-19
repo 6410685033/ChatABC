@@ -10,7 +10,7 @@
 #define BUFFER_SIZE 1024
 #define MAX_MSG 100
 #define MAX_TOKENS 4
-#define MAX_CHAT 4
+#define MAX_CHAT 10
 #define MAX_CLIENTS 100
 
 

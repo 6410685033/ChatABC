@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 #include "chat.c"
 
 #define PORT 7777
@@ -12,7 +13,6 @@
 #define MAX_TOKENS 4
 #define MAX_CHAT 10
 #define MAX_CLIENTS 100
-
 
 // Client struct definition
 typedef struct {
@@ -23,16 +23,22 @@ typedef struct {
 
 Client clients[MAX_CLIENTS];  // Array of clients
 int num_clients = 0;  // Track the number of connected clients
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Chat room list and its length
+Chat* chat_list[MAX_CHAT] = {0};
+int chat_list_length = 0;
 
 void broadcast_message(const char *message) {
+    pthread_mutex_lock(&clients_mutex);
     for (int i = 0; i < num_clients; i++) {
         if (send(clients[i].socket, message, strlen(message), 0) < 0) {
             perror("Broadcast failed");
             continue;
         }
     }
+    pthread_mutex_unlock(&clients_mutex);
 }
-
 
 int read_line(int newSd, char *line_to_return) {
     static int rcv_ptr = 0;
@@ -71,9 +77,9 @@ int read_line(int newSd, char *line_to_return) {
 }
 
 char** decode(char* line) {
-    static char *tokens[MAX_TOKENS];  // static storage for return
+    static char *tokens[MAX_TOKENS];
     int n = 0;
-    char *token = strtok(line, " ");  // Use " " instead of ' '
+    char *token = strtok(line, " ");
 
     while (token != NULL && n < MAX_TOKENS) {
         tokens[n++] = token;
@@ -84,32 +90,26 @@ char** decode(char* line) {
 }
 
 char* response_list_room(Chat* chat_list[], int chat_list_length) {
-    // Allocate memory for the combined response
     char* response = (char*)malloc(BUFFER_SIZE * chat_list_length);
     if (response == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         exit(1);
     }
-    response[0] = '\0'; // Initialize the response string to be empty
-    strcpy(response, "list_rooms "); // Initialize the response with "list_rooms"
+    response[0] = '\0';
+    strcpy(response, "list_rooms ");
 
-    // Buffer to store individual room info
     char room_info[BUFFER_SIZE];
 
-    // Loop through all chat rooms and collect their names
     for (int i = 0; i < chat_list_length; i++) {
-        // Remove newline characters from the chat name
         char* chat_name = chat_list[i]->chat_name;
         char* newline_pos;
         while ((newline_pos = strchr(chat_name, '\n')) != NULL) {
             *newline_pos = '\0';
         }
         
-        // Append the chat name to the response string
         snprintf(room_info, sizeof(room_info), "%s", chat_name);
         strcat(response, room_info);
         
-        // Add a space if this is not the last room
         if (i < chat_list_length - 1) {
             strcat(response, " ");
         }
@@ -119,15 +119,103 @@ char* response_list_room(Chat* chat_list[], int chat_list_length) {
     return response;
 }
 
-int main(int argc, char *argv[]) {
-    int sd, newSd;
-    socklen_t cliLen;
-    struct sockaddr_in servAddr, cliAddr;
+void* handle_client(void* arg) {
+    int newSd = *((int*)arg);
+    free(arg);
     char line[MAX_MSG];
-    char sendBuff[BUFFER_SIZE];
 
-    Chat* chat_list[MAX_CHAT] = {0};
-    int chat_list_length = 0;
+    printf("Client handler thread started for socket %d\n", newSd);
+
+    memset(line, 0x0, MAX_MSG);
+
+    while (read_line(newSd, line) != -1) {
+        printf("Received from client: %s", line);
+        char** command = decode(line);
+        size_t len = strlen(command[0]);
+        
+        if (command[0][len - 1] == '\n') {
+            command[0][len - 1] = '\0';
+        }
+
+        printf("Command: %s\n", command[0]);
+
+        if (strcmp(command[0], "login") == 0) {
+            printf("Login\n");
+            // Implement login logic
+        } else if (strcmp(command[0], "logout") == 0) {
+            printf("Logout\n");
+            // Implement logout logic
+        } else if (strcmp(command[0], "create") == 0) {
+            printf("Creating chat room...\n");
+            if (command[1] == NULL) {
+                printf("Error: Chat name must be provided.\n");
+                continue;
+            }
+
+            int i = 0;
+            for (; i < MAX_CHAT && chat_list[i] != NULL; i++);
+
+            if (i == MAX_CHAT) {
+                printf("Error: Maximum number of chats reached.\n");
+                continue;
+            }
+
+            chat_list[i] = malloc(sizeof(Chat));
+            if (chat_list[i] == NULL) {
+                perror("Failed to allocate memory for new chat room");
+                continue;
+            }
+
+            create_chat(chat_list[i], command[1]);
+            chat_list_length++;
+
+            char broadcast_msg[BUFFER_SIZE];
+            snprintf(broadcast_msg, sizeof(broadcast_msg), "New chat room created: %s\n", command[1]);
+            broadcast_message(broadcast_msg);
+            printf("Chat room created: %s\n", command[1]);
+            printf("Room created: %s\n", chat_list[i]->chat_name);
+        } else if (strcmp(command[0], "join") == 0) {
+            printf("Join chat room...\n");
+            // Implement join chat room logic
+        } else if (strcmp(command[0], "leave") == 0) {
+            printf("Leave chat room...\n");
+            // Implement leave chat room logic
+        } else if (strcmp(command[0], "message") == 0) {
+            printf("Message chat room...\n");
+            // Implement message sending logic
+        } else if (strcmp(command[0], "attendances") == 0) {
+            printf("Attendances chat room...\n");
+            // Implement attendance checking logic
+        } else if (strcmp(command[0], "list_rooms") == 0) {
+            printf("Listing chat rooms...\n");
+
+            char* response = response_list_room(chat_list, chat_list_length);
+
+            printf("Send response...\n");
+            printf("%s\n", response);
+
+            if (send(newSd, response, strlen(response), 0) < 0) {
+                perror("Failed to send chat room list");
+            }
+
+            free(response);
+        } else {
+            printf("Invalid command\n");
+        }
+
+        memset(line, 0x0, MAX_MSG);
+    }
+
+    close(newSd);
+    pthread_exit(NULL);
+}
+
+int main(int argc, char *argv[]) {
+    int sd;
+    struct sockaddr_in servAddr, cliAddr;
+    socklen_t cliLen;
+
+    // Chat room list and its length are now global
 
     sd = socket(AF_INET, SOCK_STREAM, 0);
     if (sd < 0) {
@@ -151,109 +239,32 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         cliLen = sizeof(cliAddr);
-        newSd = accept(sd, (struct sockaddr *)&cliAddr, &cliLen);
-        if (newSd < 0) {
+        int *newSd = malloc(sizeof(int));
+        *newSd = accept(sd, (struct sockaddr *)&cliAddr, &cliLen);
+        if (*newSd < 0) {
             perror("Cannot accept connection");
+            free(newSd);
             continue;
         }
 
+        pthread_mutex_lock(&clients_mutex);
         if (num_clients < MAX_CLIENTS) {
-        clients[num_clients].socket = newSd;
-        strncpy(clients[num_clients].room, "", NAME_SIZE);  // Initialize with no room
-        strncpy(clients[num_clients].username, "", BUFFER_SIZE);  // No username initially
-        num_clients++;
+            clients[num_clients].socket = *newSd;
+            strncpy(clients[num_clients].room, "", NAME_SIZE);
+            strncpy(clients[num_clients].username, "", BUFFER_SIZE);
+            num_clients++;
         } else {
             printf("Maximum client limit reached.\n");
-            close(newSd);  // Close the new socket as it can't be handled
+            close(*newSd);
+            free(newSd);
+            pthread_mutex_unlock(&clients_mutex);
             continue;
         }
+        pthread_mutex_unlock(&clients_mutex);
 
-        printf("Client connected from %s:%d\n", inet_ntoa(cliAddr.sin_addr), ntohs(cliAddr.sin_port));
-        memset(line, 0x0, MAX_MSG);
-
-        while (read_line(newSd, line) != -1) {
-            printf("Received from client: %s", line);
-            char** command = decode(line);
-            size_t len = strlen(command[0]);
-            
-            if (command[0][len - 1] == '\n') {
-                command[0][len - 1] = '\0';  // Remove the newline character if present
-            }
-
-            printf("Command: %s\n", command[0]);
-
-            // Handle commands
-            if (strcmp(command[0], "login") == 0) {
-                printf("Login\n");
-                // Implement login logic
-            } else if (strcmp(command[0], "logout") == 0) {
-                // Implement logout logic
-                printf("Logout\n");
-            } else if (strcmp(command[0], "create") == 0) {
-                printf("Creating chat room...\n");
-                if (command[1] == NULL) {
-                    printf("Error: Chat name must be provided.\n");
-                    continue;
-                }
-                
-                // Find the next available slot in the chat list
-                int i = 0;
-                for (; i < MAX_CHAT && chat_list[i] != NULL; i++);
-
-                if (i == MAX_CHAT) {
-                    printf("Error: Maximum number of chats reached.\n");
-                    continue;
-                }
-
-                // Allocate memory for the new chat room
-                chat_list[i] = malloc(sizeof(Chat));
-                if (chat_list[i] == NULL) {
-                    perror("Failed to allocate memory for new chat room");
-                    continue;
-                }
-
-                // Initialize the chat room with the provided name
-                create_chat(chat_list[i], command[1]);
-                chat_list_length++;
-
-                // Broadcast message to all connected clients that a new chat room has been created
-                char broadcast_msg[BUFFER_SIZE];
-                snprintf(broadcast_msg, sizeof(broadcast_msg), "New chat room created: %s\n", command[1]);
-                broadcast_message(broadcast_msg);
-                printf("Chat room created: %s\n", command[1]);
-                printf("Room created: %s\n",chat_list[i]->chat_name);
-            }
-            else if (strcmp(command[0], "join") == 0) {
-                // Join chat logic, ensure room exists in chat_list
-                printf("join chat rooms...\n");
-            } else if (strcmp(command[0], "leave") == 0) {
-                // Leave chat logic
-                printf("leave chat rooms...\n");
-            } else if (strcmp(command[0], "message") == 0) {
-                // Message sending logic
-                printf("message chat rooms...\n");
-            } else if (strcmp(command[0], "attendances") == 0) {
-                // Attendance checking logic
-                printf("attendances chat rooms...\n");
-            } else if (strcmp(command[0], "list_rooms") == 0) {
-                printf("Listing chat rooms...\n");
-
-                char* response = response_list_room(chat_list, chat_list_length);
-
-                printf("Send response...\n");
-                printf("%s\n", response);
-
-                // Send the response to the client that requested the room list
-                if (send(newSd, response, strlen(response), 0) < 0) {
-                    perror("Failed to send chat room list");
-                }
-
-            }
-            else {
-                printf("Invalid command\n");
-            }
-
-            memset(line, 0x0, MAX_MSG);  // Reset line buffer
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, handle_client, newSd) != 0) {
+            perror("Failed to create thread");
         }
     }
 

@@ -11,8 +11,8 @@
 #define BUFFER_SIZE 1024
 #define MAX_MSG 100
 #define MAX_TOKENS 4
-#define MAX_CHAT 10
-#define MAX_CLIENTS 100
+#define MAX_CHAT 5
+#define MAX_CLIENTS 5
 
 // Client struct definition
 typedef struct {
@@ -139,12 +139,15 @@ void* handle_client(void* arg) {
 
         printf("Command: %s\n", command[0]);
 
+        /* login command */
         if (strcmp(command[0], "login") == 0) {
-            printf("Login\n");
-            // Implement login logic
+            printf("%s %s\n", command[0], command[1]);
+
+        /* logout command */
         } else if (strcmp(command[0], "logout") == 0) {
-            printf("Logout\n");
-            // Implement logout logic
+            printf("%s %s\n", command[0], command[1]);
+            
+        /* create command */
         } else if (strcmp(command[0], "create") == 0) {
             printf("Creating chat room...\n");
             if (command[1] == NULL) {

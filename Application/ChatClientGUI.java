@@ -129,18 +129,7 @@ public class ChatClientGUI extends JFrame {
             }
         });
 
-        createRoomButton.addActionListener(e -> {
-            String newRoom = JOptionPane.showInputDialog("Enter new room name:");
-            if (newRoom != null && !newRoom.trim().isEmpty()) {
-                if (newRoom.contains(" ")) {
-                    JOptionPane.showMessageDialog(null, "Room name cannot contain spaces.");
-                } else {
-                    writer.println("create " + newRoom);
-                    chatRooms.add(newRoom);
-                    refreshChatRooms();
-                }
-            }
-        });
+        
     
         refreshButton.addActionListener(e -> {
             refreshChatRooms();

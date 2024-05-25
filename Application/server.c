@@ -29,6 +29,7 @@ pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 Chat* chat_list[MAX_CHAT] = {0};
 int chat_list_length = 0;
 
+
 void broadcast_message(const char *message) {
     pthread_mutex_lock(&clients_mutex);
     for (int i = 0; i < num_clients; i++) {
@@ -177,6 +178,16 @@ void* handle_client(void* arg) {
             broadcast_message(broadcast_msg);
             printf("Chat room created: %s\n", command[1]);
             printf("Room created: %s\n", chat_list[i]->chat_name);
+
+            char* response = response_list_room(chat_list, chat_list_length);
+
+            printf("Send response...\n");
+            printf("%s\n", response);
+
+            broadcast_message(response);
+
+            free(response);
+
         } else if (strcmp(command[0], "join") == 0) {
             printf("Join chat room...\n");
             // Implement join chat room logic

@@ -223,8 +223,13 @@ public class ChatClientGUI extends JFrame {
         messageField = new JTextField();
         messageField.setEditable(false);
         JButton sendButton = new JButton("Send");
+        JButton saveButton = new JButton("Save");
         JButton leaveRoomButton = new JButton("Leave Room");
         JButton showParticipantsButton = new JButton("Show Participants");
+
+        saveButton.addActionListener(e -> {
+            writer.println("save " + currentRoom);
+        });
 
         sendButton.addActionListener(e -> {
             String message = chatArea.getText().trim();
@@ -253,6 +258,7 @@ public class ChatClientGUI extends JFrame {
         topPanel.add(roomLabel, BorderLayout.CENTER);
 
         JPanel inputPanel = new JPanel(new BorderLayout());
+        inputPanel.add(saveButton, BorderLayout.WEST);
         inputPanel.add(messageField, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
 

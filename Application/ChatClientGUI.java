@@ -249,7 +249,7 @@ public class ChatClientGUI extends JFrame {
         topPanel.add(leaveRoomButton, BorderLayout.WEST);
         topPanel.add(showParticipantsButton, BorderLayout.EAST);
 
-        JLabel roomLabel = new JLabel(currentRoom, JLabel.CENTER);
+        JLabel roomLabel = new JLabel(currentRoom + ": " + username, JLabel.CENTER);
         topPanel.add(roomLabel, BorderLayout.CENTER);
 
         JPanel inputPanel = new JPanel(new BorderLayout());

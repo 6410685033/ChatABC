@@ -140,3 +140,18 @@ int leave_file(File *file, char *attendee) {
 
     return 0;
 }
+
+// Function to replace ";;;" with "\n" in a message
+void replace_semicolons_with_newlines(char* message) {
+    char* src = message;
+    char* dest = message;
+    while (*src) {
+        if (src[0] == ';' && src[1] == ';' && src[2] == ';') {
+            *dest++ = '\n';
+            src += 3;
+        } else {
+            *dest++ = *src++;
+        }
+    }
+    *dest = '\0';
+}

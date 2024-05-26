@@ -171,15 +171,22 @@ void save_message_to_file(File* chat, const char* message) {
     char full_filename[BUFFER_SIZE];
     snprintf(full_filename, BUFFER_SIZE, "%s.txt", chat->file_name);
 
-    // Open the file in append mode, it will create the file if it does not exist
-    FILE* file = fopen(full_filename, "a");
+    // Open the file in write mode, it will replace the file if it exists.
+    FILE* file = fopen(full_filename, "w");
     if (file == NULL) {
         fprintf(stderr, "Error: Could not open file %s for writing\n", full_filename);
         return;
     }
 
-    // Write the message to the file
-    fprintf(file, "%s\n", message);
+    // Remove "message " prefix and replace ";;;" with "\n"
+    const char* message_start = strchr(message, ' ') + 1;
+    char formatted_message[BUFFER_SIZE];
+    strncpy(formatted_message, message_start, BUFFER_SIZE - 1);
+    formatted_message[BUFFER_SIZE - 1] = '\0';
+    replace_semicolons_with_newlines(formatted_message);
+
+    // Write the formatted message to the file
+    fprintf(file, "%s\n", formatted_message);
 
     // Close the file
     fclose(file);

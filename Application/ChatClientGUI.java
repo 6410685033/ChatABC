@@ -21,6 +21,7 @@ public class ChatClientGUI extends JFrame {
     private List<String> chatRooms;
     private String currentRoom;
     private List<String> currentParticipants;
+    private String editor;
 
     private JPanel chatButtonPanel = new JPanel(new GridLayout(0, 1));
 
@@ -68,6 +69,10 @@ public class ChatClientGUI extends JFrame {
             if (currentState == ViewState.ROOM) {
                 SwingUtilities.invokeLater(() -> updateAttendances(response));
             }
+        } else if (response.startsWith("message")) {
+            if (currentState == ViewState.ROOM) {
+                SwingUtilities.invokeLater(() -> updateMessage(response));
+            }
         }
     }
 
@@ -89,8 +94,21 @@ public class ChatClientGUI extends JFrame {
             chatRooms.add(parts[i]);
         }
         
-        if (currentState == ViewState.ROOM_LIST) {  // Only update the chat room list if the user is on the chat list screen
+        if (currentState == ViewState.ROOM_LIST) {
             updateChatRoomButtons();
+        }
+    }
+
+    private void updateMessage(String messageResponse) {
+        System.out.println("updateMessage occur: " + messageResponse);
+        String[] parts = messageResponse.split(" ", 2);
+        chatArea.setText("");  // Clear the chat area
+        if (parts.length > 1) {
+            StringBuilder newContent = new StringBuilder();
+            for (int i = 1; i < parts.length; i++) {
+                newContent.append(parts[i]).append(" ");
+            }
+            chatArea.setText(newContent.toString().trim());  // Assign the new content
         }
     }
 
@@ -193,6 +211,7 @@ public class ChatClientGUI extends JFrame {
         currentRoom = roomName;
         currentParticipants.clear();
         writer.println("join " + currentRoom + " " + username);
+        writer.println("editor " + currentRoom);
         showChatRoomPage();
     }
 
@@ -214,6 +233,7 @@ public class ChatClientGUI extends JFrame {
 
         leaveRoomButton.addActionListener(e -> {
             writer.println("leave " + currentRoom + " " + username);
+            refreshChatRooms();
             showChatListPage();
         });
 

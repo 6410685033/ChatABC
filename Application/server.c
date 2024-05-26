@@ -8,7 +8,7 @@
 
 #define PORT 7777
 #define BUFFER_SIZE 1024
-#define MAX_MSG 100
+#define MAX_MSG 1024
 #define MAX_TOKENS 4
 #define MAX_CHAT 5
 #define MAX_CLIENTS 5
@@ -27,12 +27,23 @@ File* chat_list[MAX_CHAT] = {0};
 int chat_list_length = 0;
 
 File* find_chat(File* chat_list[], int chat_list_length, const char* chat_name) {
+    char clean_chat_name[BUFFER_SIZE];
+    strncpy(clean_chat_name, chat_name, BUFFER_SIZE - 1);
+    clean_chat_name[BUFFER_SIZE - 1] = '\0';  // Ensure null-termination
+
+    // Remove the newline character, if present
+    char* newline_pos = strchr(clean_chat_name, '\n');
+    if (newline_pos != NULL) {
+        *newline_pos = '\0';
+    }
+
     for (int i = 0; i < chat_list_length; i++) {
-        if (strcmp(chat_list[i]->file_name, chat_name) == 0) {
+        printf("%s compare to %s\n", chat_list[i]->file_name, clean_chat_name);
+        if (strcmp(chat_list[i]->file_name, clean_chat_name) == 0) {
             return chat_list[i];
         }
     }
-    return NULL;  // Return NULL if no chat room is found
+    return NULL; 
 }
 
 void broadcast_message(const char *message) {
@@ -218,8 +229,7 @@ void* handle_client(void* arg) {
 
             File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
             if (current_chat != NULL) {
-                int result_join;
-                result_join = join_file(current_chat, command[2]);
+                int result_join = join_file(current_chat, command[2]);
                 if (result_join == 0) {
                     pthread_mutex_lock(&clients_mutex);
                     for (int i = 0; i < num_clients; i++) {
@@ -261,8 +271,21 @@ void* handle_client(void* arg) {
 
         } else if (strcmp(command[0], "message") == 0) {
             printf("Message chat room...\n");
-            // Implement message sending logic
 
+            File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
+            if (current_chat != NULL) {
+                char* response = update_message(current_chat, command[2], command[3]);
+                printf("Send response...\n");
+                printf("%s\n", response);
+                broadcast_attendances(response, current_chat);
+
+                // Only free if response is dynamically allocated
+                if (strcmp(response, "Wait! you not the editor.") != 0) {
+                    free(response);
+                }
+            } else {
+                printf("Chat room not found.\n");
+            }
         } else if (strcmp(command[0], "attendances") == 0) {
             printf("Attendances chat room...\n");
             File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
@@ -294,6 +317,27 @@ void* handle_client(void* arg) {
             }
 
             free(response);
+
+        } else if (strcmp(command[0], "editor") == 0) {
+            printf("Editor of this room...\n");
+
+            if (command[1] == NULL) {
+                printf("Error: Chat name must be provided.\n");
+                continue;
+            }
+
+            File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
+            if (current_chat != NULL) {
+                char* response = editor_is(current_chat); // Ensure this function allocates memory using malloc
+                char message[BUFFER_SIZE];
+                snprintf(message, sizeof(message), "editor %s", response);
+
+                printf("Send response...\n");
+                broadcast_attendances(message, current_chat);
+                free(response); // Only free if response was allocated with malloc
+            } else {
+                printf("Chat room not found.\n");
+            }
         } else {
             printf("Invalid command\n");
         }

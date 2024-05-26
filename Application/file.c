@@ -5,12 +5,55 @@
 #define NAME_SIZE 20
 #define MAX_ATTENDEES 10
 #define ATTENDEE_NAME_SIZE 1024
+#define MESSAGE_SIZE 1024
 
 typedef struct {
     char file_name[NAME_SIZE];
     char attendances[MAX_ATTENDEES][ATTENDEE_NAME_SIZE];
     int num_attendees;
+    char* content[MESSAGE_SIZE];
 } File;
+
+void remove_newline(char* str) {
+    char* newline_pos = strchr(str, '\n');
+    if (newline_pos != NULL) {
+        *newline_pos = '\0';
+    }
+}
+
+char* editor_is(File* file) {
+    char* response = (char*)malloc(MESSAGE_SIZE);
+    if (response == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+    snprintf(response, MESSAGE_SIZE, "%s", file->attendances[0]);
+    return response;
+}
+
+
+char* update_message(File *file, char* sender, char* message) {
+    // Remove newline character from file->attendances[0]
+    remove_newline(file->attendances[0]);
+
+    printf("%s compare to %s\n", file->attendances[0], sender);
+    if (strcmp(file->attendances[0], sender) != 0) {
+        // Return a static string, not to be freed
+        return "Wait! you not the editor.";
+    }
+
+    char *response = (char *)malloc(MESSAGE_SIZE);
+    if (response == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+    response[0] = '\0';
+
+    strcat(response, "message ");
+    strcat(response, message);
+
+    return response;
+}
 
 void create_file(File *file, const char *file_name) {
     if (file == NULL) {
@@ -29,6 +72,7 @@ void create_file(File *file, const char *file_name) {
 
 void print_file_info(const File *file) {
     printf("File Name: %s\n", file->file_name);
+    printf("Owner: %s\n", file->attendances[0]);
     printf("Attendees (%d):\n", file->num_attendees);
     for (int i = 0; i < file->num_attendees; i++) {
         printf("%d. %s\n", i + 1, file->attendances[i]);
@@ -57,9 +101,6 @@ char* show_attendees(const File *file) {
         }
 
         strcat(response, temp_name);
-        // if (i < file->num_attendees - 1) {
-        //     strcat(response, " ");
-        // }
     }
 
     strcat(response, "\n");
@@ -104,3 +145,4 @@ int leave_file(File *file, const char *attendee) {
 
     return 0;
 }
+

@@ -55,7 +55,7 @@ public class ChatClientGUI extends JFrame {
                 handleServerResponse(line);
             }
         } catch (IOException e) {
-            e.printStackTrace();  // Consider a reconnect or alerting the user 
+            e.printStackTrace();
         }
     }
 

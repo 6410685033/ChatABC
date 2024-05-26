@@ -165,26 +165,6 @@ char* response_list_room(File* chat_list[], int chat_list_length) {
     return response;
 }
 
-// Function to save a message to a .txt file
-void save_message_to_file(File* chat, const char* message) {
-    // Allocate memory for the full filename
-    char full_filename[BUFFER_SIZE];
-    snprintf(full_filename, BUFFER_SIZE, "%s.txt", chat->file_name);
-
-    // Open the file in append mode, it will create the file if it does not exist
-    FILE* file = fopen(full_filename, "a");
-    if (file == NULL) {
-        fprintf(stderr, "Error: Could not open file %s for writing\n", full_filename);
-        return;
-    }
-
-    // Write the message to the file
-    fprintf(file, "%s\n", message);
-
-    // Close the file
-    fclose(file);
-}
-
 void* handle_client(void* arg) {
     int newSd = *((int*)arg);
     free(arg);
@@ -317,8 +297,6 @@ void* handle_client(void* arg) {
                 printf("%s\n", response);
                 broadcast_attendances(response, current_chat);
 
-                save_message_to_file(current_chat, response);
-
                 // Only free if response is dynamically allocated
                 if (strcmp(response, "Wait! you not the editor.") != 0) {
                     free(response);
@@ -331,14 +309,13 @@ void* handle_client(void* arg) {
 
             File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
             if (current_chat != NULL) {
-                char* response = current_chat->content;
-                printf("Send response...\n");
-                printf("%s\n", response);
-                broadcast_attendances(response, current_chat);
-
-                // Only free if response is dynamically allocated
-                if (strcmp(response, "Wait! you not the editor.") != 0) {
-                    free(response);
+                char* response = *current_chat->content;
+                if (response != NULL && strcmp(response, "Wait! you not the editor.") != 0) {
+                    printf("Send response...\n");
+                    printf("%s\n", response);
+                    broadcast_attendances(response, current_chat);
+                } else if (response != NULL) {
+                    printf("%s\n", response);
                 }
             } else {
                 printf("Chat room not found.\n");

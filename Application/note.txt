@@ -1,3 +1,0 @@
-
-sent prompt by the word is too long for buffer, using encoder?: ok
-

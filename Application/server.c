@@ -165,6 +165,26 @@ char* response_list_room(File* chat_list[], int chat_list_length) {
     return response;
 }
 
+// Function to save a message to a .txt file
+void save_message_to_file(File* chat, const char* message) {
+    // Allocate memory for the full filename
+    char full_filename[BUFFER_SIZE];
+    snprintf(full_filename, BUFFER_SIZE, "%s.txt", chat->file_name);
+
+    // Open the file in append mode, it will create the file if it does not exist
+    FILE* file = fopen(full_filename, "a");
+    if (file == NULL) {
+        fprintf(stderr, "Error: Could not open file %s for writing\n", full_filename);
+        return;
+    }
+
+    // Write the message to the file
+    fprintf(file, "%s\n", message);
+
+    // Close the file
+    fclose(file);
+}
+
 void* handle_client(void* arg) {
     int newSd = *((int*)arg);
     free(arg);
@@ -296,6 +316,8 @@ void* handle_client(void* arg) {
                 printf("Send response...\n");
                 printf("%s\n", response);
                 broadcast_attendances(response, current_chat);
+
+                save_message_to_file(current_chat, response);
 
                 // Only free if response is dynamically allocated
                 if (strcmp(response, "Wait! you not the editor.") != 0) {

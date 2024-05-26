@@ -21,16 +21,6 @@ void remove_newline(char* str) {
     }
 }
 
-// char* editor_is(File* file) {
-//     char* response = (char*)malloc(MESSAGE_SIZE);
-//     if (response == NULL) {
-//         fprintf(stderr, "Memory allocation failed\n");
-//         exit(1);
-//     }
-//     snprintf(response, MESSAGE_SIZE, "%s", file->attendances[0]);
-//     return response;
-// }
-
 char* update_message(File *file, char* sender, char* message) {
     // Remove newline character from file->attendances[0] and sender
     remove_newline(file->attendances[0]);

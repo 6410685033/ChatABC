@@ -109,7 +109,8 @@ public class ChatClientGUI extends JFrame {
             for (int i = 1; i < parts.length; i++) {
                 newContent.append(parts[i]).append(" ");
             }
-            chatArea.setText(newContent.toString().trim());
+            String messageWithNewLines = newContent.toString().trim().replace(";;;", "\n");
+            chatArea.setText(messageWithNewLines);
         }
     }
 
@@ -228,6 +229,7 @@ public class ChatClientGUI extends JFrame {
         sendButton.addActionListener(e -> {
             String message = chatArea.getText().trim();
             if (!message.isEmpty()) {
+                message = message.replace("\n", ";;;");
                 writer.println("message " + currentRoom + " " + username + " " + message);
             }
         });

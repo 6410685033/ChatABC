@@ -21,7 +21,7 @@ public class ChatClientGUI extends JFrame {
     private List<String> chatRooms;
     private String currentRoom;
     private List<String> currentParticipants;
-    private String editor;
+    // private String editor;
 
     private JPanel chatButtonPanel = new JPanel(new GridLayout(0, 1));
 
@@ -83,6 +83,7 @@ public class ChatClientGUI extends JFrame {
         for (int i = 1; i < parts.length; i++) {
             currentParticipants.add(parts[i]);
         }
+        messageField.setText(parts[1].toString().trim());
     }
 
     private void updateChatRooms(String roomsResponse) {
@@ -217,17 +218,17 @@ public class ChatClientGUI extends JFrame {
 
     private void showChatRoomPage() {
         chatArea = new JTextArea();
-        chatArea.setEditable(false);
+        chatArea.setEditable(true);
         messageField = new JTextField();
+        messageField.setEditable(false);
         JButton sendButton = new JButton("Send");
         JButton leaveRoomButton = new JButton("Leave Room");
         JButton showParticipantsButton = new JButton("Show Participants");
 
         sendButton.addActionListener(e -> {
-            String message = messageField.getText().trim();
+            String message = chatArea.getText().trim();
             if (!message.isEmpty()) {
                 writer.println("message " + currentRoom + " " + username + " " + message);
-                messageField.setText("");
             }
         });
 

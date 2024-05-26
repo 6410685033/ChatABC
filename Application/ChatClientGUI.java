@@ -1,12 +1,17 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ChatClientGUI extends JFrame {
+    private enum ViewState {
+        LOGIN_VIEW, ROOM_LIST, ROOM
+    }
+
+    private ViewState currentState = ViewState.LOGIN_VIEW;
+
     private String username;
     private Socket socket;
     private BufferedReader reader;
@@ -56,9 +61,13 @@ public class ChatClientGUI extends JFrame {
     public void handleServerResponse(String response) {
         System.out.println("handleServerResponse occur: " + response);
         if (response.startsWith("list_rooms")) {
-            SwingUtilities.invokeLater(() -> updateChatRooms(response));
+            if (currentState == ViewState.ROOM_LIST) {
+                SwingUtilities.invokeLater(() -> updateChatRooms(response));
+            }
         } else if (response.startsWith("attendances")) {
-            SwingUtilities.invokeLater(() -> updateAttendances(response));
+            if (currentState == ViewState.ROOM) {
+                SwingUtilities.invokeLater(() -> updateAttendances(response));
+            }
         }
     }
 
@@ -79,10 +88,15 @@ public class ChatClientGUI extends JFrame {
         for (int i = 1; i < parts.length; i++) {
             chatRooms.add(parts[i]);
         }
-        showChatListPage();
+        
+        if (currentState == ViewState.ROOM_LIST) {  // Only update the chat room list if the user is on the chat list screen
+            updateChatRoomButtons();
+        }
     }
 
     private void showLoginPage() {
+        currentState = ViewState.LOGIN_VIEW;
+        
         JPanel loginPanel = new JPanel(new GridLayout(2, 1, 0, 10));
         JTextField nameField = new JTextField(15);
         JButton loginButton = new JButton("Login");
@@ -107,6 +121,7 @@ public class ChatClientGUI extends JFrame {
     }
 
     private void showChatListPage() {
+        currentState = ViewState.ROOM_LIST;
         setSize(500, 400);
 
         JPanel listPanel = new JPanel(new BorderLayout());
@@ -174,6 +189,7 @@ public class ChatClientGUI extends JFrame {
     }
 
     private void joinChatRoom(String roomName) {
+        currentState = ViewState.ROOM;
         currentRoom = roomName;
         currentParticipants.clear();
         writer.println("join " + currentRoom + " " + username);

@@ -27,45 +27,6 @@ void create_file(File *file, const char *file_name) {
     file->num_attendees = 0;
 }
 
-int join_file(File *file, const char *attendee) {
-    if (file->num_attendees >= MAX_ATTENDEES) {
-        printf("File is full. Can't add more attendees.\n");
-        return -1;
-    }
-
-    strncpy(file->attendances[file->num_attendees], attendee, ATTENDEE_NAME_SIZE - 1);
-    file->attendances[file->num_attendees][ATTENDEE_NAME_SIZE - 1] = '\0';
-    file->num_attendees++;
-
-    return 0;
-}
-
-int leave_file(File *file, const char *attendee) {
-    int index = -1;
-
-    for (int i = 0; i < file->num_attendees; i++) {
-        if (strcmp(file->attendances[i], attendee) == 0) {
-            index = i;
-            break;
-        }
-    }
-
-    if (index == -1) {
-        printf("Attendee '%s' not found in the file.\n", attendee);
-        return -1;
-    }
-
-    for (int i = index; i < file->num_attendees - 1; i++) {
-        strncpy(file->attendances[i], file->attendances[i + 1], ATTENDEE_NAME_SIZE - 1);
-        file->attendances[i][ATTENDEE_NAME_SIZE - 1] = '\0';
-    }
-
-    file->attendances[file->num_attendees - 1][0] = '\0';
-    file->num_attendees--;
-
-    return 0;
-}
-
 void print_file_info(const File *file) {
     printf("File Name: %s\n", file->file_name);
     printf("Attendees (%d):\n", file->num_attendees);
@@ -103,4 +64,43 @@ char* show_attendees(const File *file) {
 
     strcat(response, "\n");
     return response;
+}
+
+int join_file(File *file, const char *attendee) {
+    if (file->num_attendees >= MAX_ATTENDEES) {
+        printf("File is full. Can't add more attendees.\n");
+        return -1;
+    }
+
+    strncpy(file->attendances[file->num_attendees], attendee, ATTENDEE_NAME_SIZE - 1);
+    file->attendances[file->num_attendees][ATTENDEE_NAME_SIZE - 1] = '\0';
+    file->num_attendees++;
+
+    return 0;
+}
+
+int leave_file(File *file, const char *attendee) {
+    int index = -1;
+
+    for (int i = 0; i < file->num_attendees; i++) {
+        if (strcmp(file->attendances[i], attendee) == 0) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1) {
+        printf("Attendee '%s' not found in the file.\n", attendee);
+        return -1;
+    }
+
+    for (int i = index; i < file->num_attendees - 1; i++) {
+        strncpy(file->attendances[i], file->attendances[i + 1], ATTENDEE_NAME_SIZE - 1);
+        file->attendances[i][ATTENDEE_NAME_SIZE - 1] = '\0';
+    }
+
+    file->attendances[file->num_attendees - 1][0] = '\0';
+    file->num_attendees--;
+
+    return 0;
 }

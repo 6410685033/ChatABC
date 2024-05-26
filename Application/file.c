@@ -11,7 +11,7 @@ typedef struct {
     char file_name[NAME_SIZE];
     char attendances[MAX_ATTENDEES][ATTENDEE_NAME_SIZE];
     int num_attendees;
-    char* content[MESSAGE_SIZE];
+    char* content;
 } File;
 
 void remove_newline(char* str) {
@@ -43,11 +43,11 @@ char* update_message(File *file, char* sender, char* message) {
     strcat(response, message);
 
     // Update the file content with the new message
-    if (*file->content != NULL) {
+    if (file->content != NULL) {
         free(file->content); // Free the old content
     }
-    *file->content = response;
-
+    file->content = strdup(response);
+    
     return response;
 }
 

@@ -1,14 +1,10 @@
 import javax.swing.*;
-
-// import Models.Chat;
-
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-
 
 public class ChatClientGUI extends JFrame {
     private String username;
@@ -85,8 +81,6 @@ public class ChatClientGUI extends JFrame {
         }
         showChatListPage();
     }
-    
-    
 
     private void showLoginPage() {
         JPanel loginPanel = new JPanel(new GridLayout(2, 1, 0, 10));
@@ -114,7 +108,7 @@ public class ChatClientGUI extends JFrame {
 
     private void showChatListPage() {
         setSize(500, 400);
-        
+
         JPanel listPanel = new JPanel(new BorderLayout());
         JScrollPane scrollPane = new JScrollPane(chatButtonPanel); // Only one JScrollPane
         JPanel topPanel = new JPanel(new BorderLayout());
@@ -122,14 +116,14 @@ public class ChatClientGUI extends JFrame {
         JButton logoutButton = new JButton("Logout");
         JButton refreshButton = new JButton("Refresh");
         JLabel loggedInLabel = new JLabel("Logged in as: " + username, JLabel.RIGHT);
-    
+
         logoutButton.addActionListener(e -> {
             writer.println("logout " + username);
             username = null;
             setSize(300, 150);
             showLoginPage();
         });
-    
+
         createRoomButton.addActionListener(e -> {
             String newRoom = JOptionPane.showInputDialog("Enter new room name:");
             if (newRoom != null && !newRoom.trim().isEmpty()) {
@@ -140,31 +134,29 @@ public class ChatClientGUI extends JFrame {
             }
         });
 
-        
-    
         refreshButton.addActionListener(e -> {
             refreshChatRooms();
         });
-    
+
         updateChatRoomButtons();
-    
+
         JPanel leftTopPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         leftTopPanel.add(logoutButton);
         JPanel rightTopPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         rightTopPanel.add(loggedInLabel);
         rightTopPanel.add(refreshButton);  // Add refresh button to the right top panel
-    
+
         topPanel.add(leftTopPanel, BorderLayout.WEST);
         topPanel.add(rightTopPanel, BorderLayout.EAST);
-    
+
         listPanel.add(new JScrollPane(chatButtonPanel), BorderLayout.CENTER);
         listPanel.add(topPanel, BorderLayout.NORTH);
         listPanel.add(new JPanel(new FlowLayout(FlowLayout.CENTER)).add(createRoomButton), BorderLayout.SOUTH);
-    
+
         setContentPane(listPanel);
         setVisible(true);
     }
-    
+
     private void refreshChatRooms() {
         chatRooms.clear();
         writer.println("list_rooms");
@@ -217,6 +209,9 @@ public class ChatClientGUI extends JFrame {
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(leaveRoomButton, BorderLayout.WEST);
         topPanel.add(showParticipantsButton, BorderLayout.EAST);
+
+        JLabel roomLabel = new JLabel(currentRoom, JLabel.CENTER);
+        topPanel.add(roomLabel, BorderLayout.CENTER);
 
         JPanel inputPanel = new JPanel(new BorderLayout());
         inputPanel.add(messageField, BorderLayout.CENTER);

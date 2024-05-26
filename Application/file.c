@@ -31,10 +31,10 @@ char* editor_is(File* file) {
     return response;
 }
 
-
 char* update_message(File *file, char* sender, char* message) {
-    // Remove newline character from file->attendances[0]
+    // Remove newline character from file->attendances[0] and sender
     remove_newline(file->attendances[0]);
+    remove_newline(sender);
 
     printf("%s compare to %s\n", file->attendances[0], sender);
     if (strcmp(file->attendances[0], sender) != 0) {
@@ -93,14 +93,13 @@ char* show_attendees(const File *file) {
         strncpy(temp_name, file->attendances[i], ATTENDEE_NAME_SIZE - 1);
         temp_name[ATTENDEE_NAME_SIZE - 1] = '\0';
 
-        // Replace newline characters with spaces
-        for (char *p = temp_name; *p; ++p) {
-            if (*p == '\n') {
-                *p = ' ';
-            }
-        }
+        // Remove newline characters from each attendee name
+        remove_newline(temp_name);
 
         strcat(response, temp_name);
+        if (i < file->num_attendees - 1) {
+            strcat(response, " ");
+        }
     }
 
     strcat(response, "\n");
@@ -115,6 +114,8 @@ int join_file(File *file, const char *attendee) {
 
     strncpy(file->attendances[file->num_attendees], attendee, ATTENDEE_NAME_SIZE - 1);
     file->attendances[file->num_attendees][ATTENDEE_NAME_SIZE - 1] = '\0';
+    // Remove newline characters from the new attendee name
+    remove_newline(file->attendances[file->num_attendees]);
     file->num_attendees++;
 
     return 0;
@@ -124,6 +125,8 @@ int leave_file(File *file, const char *attendee) {
     int index = -1;
 
     for (int i = 0; i < file->num_attendees; i++) {
+        // Remove newline characters from attendee name before comparison
+        remove_newline(file->attendances[i]);
         if (strcmp(file->attendances[i], attendee) == 0) {
             index = i;
             break;
@@ -145,4 +148,3 @@ int leave_file(File *file, const char *attendee) {
 
     return 0;
 }
-

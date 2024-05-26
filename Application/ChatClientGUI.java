@@ -101,14 +101,14 @@ public class ChatClientGUI extends JFrame {
 
     private void updateMessage(String messageResponse) {
         System.out.println("updateMessage occur: " + messageResponse);
-        String[] parts = messageResponse.split(" ", 2);
+        String[] parts = messageResponse.split(" ");
         chatArea.setText("");  // Clear the chat area
         if (parts.length > 1) {
             StringBuilder newContent = new StringBuilder();
             for (int i = 1; i < parts.length; i++) {
                 newContent.append(parts[i]).append(" ");
             }
-            chatArea.setText(newContent.toString().trim());  // Assign the new content
+            chatArea.setText(newContent.toString().trim());
         }
     }
 

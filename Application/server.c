@@ -111,11 +111,27 @@ char** decode(char* line) {
     int n = 0;
     char *token = strtok(line, " ");
 
-    while (token != NULL && n < MAX_TOKENS) {
+    while (token != NULL && n < MAX_TOKENS - 1) { // Reserve the last token for potential concatenation
         tokens[n++] = token;
         token = strtok(NULL, " ");
     }
 
+    if (token != NULL) {
+        // Concatenate the remaining parts with spaces
+        size_t remaining_length = strlen(token) + 1; // Include space for the null terminator
+        char *remaining = (char *)malloc(remaining_length * sizeof(char));
+        strcpy(remaining, token);
+
+        while ((token = strtok(NULL, " ")) != NULL) {
+            remaining_length += strlen(token) + 1; // +1 for the space
+            remaining = (char *)realloc(remaining, remaining_length * sizeof(char));
+            strcat(remaining, " ");
+            strcat(remaining, token);
+        }
+        tokens[n++] = remaining; // Add the concatenated string as the last token
+    }
+
+    tokens[n] = NULL; // Terminate the list with a NULL pointer
     return tokens;
 }
 

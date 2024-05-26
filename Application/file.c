@@ -1,11 +1,17 @@
+// file.c
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <dirent.h>
+#include <sys/types.h>
 
 #define NAME_SIZE 20
 #define MAX_ATTENDEES 10
 #define ATTENDEE_NAME_SIZE 1024
 #define MESSAGE_SIZE 1024
+#define BUFFER_SIZE 1024
+#define MAX_CHAT 5
 
 typedef struct {
     char file_name[NAME_SIZE];
@@ -13,6 +19,9 @@ typedef struct {
     int num_attendees;
     char* content;
 } File;
+
+File* chat_list[MAX_CHAT];
+int chat_list_length = 0;
 
 void remove_newline(char* str) {
     char* newline_pos = strchr(str, '\n');
@@ -161,3 +170,70 @@ void replace_semicolons_with_newlines(char* message) {
     }
     *dest = '\0';
 }
+
+// Function to initialize chat rooms from .txt files in a directory
+void initialize_chat_rooms_from_directory(const char *directory) {
+    DIR *dir;
+    struct dirent *entry;
+
+    if ((dir = opendir(directory)) == NULL) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {
+            char *ext = strrchr(entry->d_name, '.');
+            if (ext && strcmp(ext, ".txt") == 0) {
+                // Remove .txt extension to get the chat room name
+                char chat_room_name[NAME_SIZE];
+                strncpy(chat_room_name, entry->d_name, ext - entry->d_name);
+                chat_room_name[ext - entry->d_name] = '\0';
+
+                if (chat_list_length < MAX_CHAT) {
+                    File *new_chat = (File *)malloc(sizeof(File));
+                    if (new_chat == NULL) {
+                        perror("Failed to allocate memory for chat room");
+                        continue;
+                    }
+
+                    create_file(new_chat, chat_room_name);
+
+                    // Read the content of the file and set it to new_chat->content
+                    char full_filename[BUFFER_SIZE];
+                    snprintf(full_filename, BUFFER_SIZE, "%s/%s", directory, entry->d_name);
+                    FILE *file = fopen(full_filename, "r");
+                    if (file == NULL) {
+                        perror("Failed to open chat room file");
+                        free(new_chat);
+                        continue;
+                    }
+
+                    fseek(file, 0, SEEK_END);
+                    long file_size = ftell(file);
+                    fseek(file, 0, SEEK_SET);
+
+                    new_chat->content = (char *)malloc(file_size + 1);
+                    if (new_chat->content == NULL) {
+                        perror("Failed to allocate memory for chat content");
+                        fclose(file);
+                        free(new_chat);
+                        continue;
+                    }
+
+                    fread(new_chat->content, 1, file_size, file);
+                    new_chat->content[file_size] = '\0';
+                    fclose(file);
+
+                    // Add the new chat room to the chat list
+                    chat_list[chat_list_length++] = new_chat;
+                } else {
+                    printf("Maximum number of chat rooms reached.\n");
+                    break;
+                }
+            }
+        }
+    }
+    closedir(dir);
+}
+

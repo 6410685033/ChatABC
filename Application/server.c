@@ -1,3 +1,5 @@
+// server.c
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,9 +24,6 @@ typedef struct {
 Client clients[MAX_CLIENTS];
 int num_clients = 0;
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-File* chat_list[MAX_CHAT] = {0};
-int chat_list_length = 0;
 
 File* find_chat(File* chat_list[], int chat_list_length, const char* chat_name) {
     char clean_chat_name[BUFFER_SIZE];
@@ -324,7 +323,6 @@ void* handle_client(void* arg) {
                 printf("%s\n", response);
                 broadcast_attendances(response, current_chat);
 
-                save_message_to_file(current_chat, response);
                 // Only free if response is dynamically allocated
                 if (strcmp(response, "Wait! you not the editor.") != 0) {
                     free(response);
@@ -410,6 +408,11 @@ void* handle_client(void* arg) {
                 printf("Chat room not found.\n");
             }
 
+        } else if (strcmp(command[0], "save") == 0) {
+            printf("Saving File...\n");
+
+            File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
+            save_message_to_file(current_chat, current_chat->content); 
         } else {
             printf("Invalid command\n");
         }
@@ -422,6 +425,14 @@ void* handle_client(void* arg) {
 }
 
 int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <directory>\n", argv[0]);
+        return 1;
+    }
+
+    const char *chat_directory = argv[1];
+    initialize_chat_rooms_from_directory(chat_directory);
+
     int sd;
     struct sockaddr_in servAddr, cliAddr;
     socklen_t cliLen;

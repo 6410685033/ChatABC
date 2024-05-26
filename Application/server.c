@@ -324,8 +324,6 @@ void* handle_client(void* arg) {
                 printf("%s\n", response);
                 broadcast_attendances(response, current_chat);
 
-                save_message_to_file(current_chat, response);
-
                 // Only free if response is dynamically allocated
                 if (strcmp(response, "Wait! you not the editor.") != 0) {
                     free(response);
@@ -338,14 +336,13 @@ void* handle_client(void* arg) {
 
             File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
             if (current_chat != NULL) {
-                char* response = current_chat->content;
-                printf("Send response...\n");
-                printf("%s\n", response);
-                broadcast_attendances(response, current_chat);
-
-                // Only free if response is dynamically allocated
-                if (strcmp(response, "Wait! you not the editor.") != 0) {
-                    free(response);
+                char* response = *current_chat->content;
+                if (response != NULL && strcmp(response, "Wait! you not the editor.") != 0) {
+                    printf("Send response...\n");
+                    printf("%s\n", response);
+                    broadcast_attendances(response, current_chat);
+                } else if (response != NULL) {
+                    printf("%s\n", response);
                 }
             } else {
                 printf("Chat room not found.\n");

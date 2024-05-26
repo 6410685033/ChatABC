@@ -278,6 +278,8 @@ void* handle_client(void* arg) {
                 printf("Send response...\n");
                 printf("%s\n", response);
 
+                print_file_info(current_chat);
+
                 broadcast_attendances(response, current_chat);
 
                 free(response);
@@ -344,16 +346,26 @@ void* handle_client(void* arg) {
 
             File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
             if (current_chat != NULL) {
-                char* response = editor_is(current_chat); // Ensure this function allocates memory using malloc
+                char* response = (char*)malloc(BUFFER_SIZE);
+                if (response == NULL) {
+                    fprintf(stderr, "Memory allocation failed\n");
+                    exit(1);
+                }
+
+                // Construct the response message
+                snprintf(response, BUFFER_SIZE, "editor %s\n", current_chat->attendances[0]);
+
                 char message[BUFFER_SIZE];
-                snprintf(message, sizeof(message), "editor %s", response);
+                snprintf(message, sizeof(message), "editor %s\n", response);
 
                 printf("Send response...\n");
                 broadcast_attendances(message, current_chat);
-                free(response); // Only free if response was allocated with malloc
+
+                free(response); // Free the allocated memory
             } else {
                 printf("Chat room not found.\n");
             }
+
         } else {
             printf("Invalid command\n");
         }

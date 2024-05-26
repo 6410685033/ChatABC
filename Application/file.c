@@ -21,15 +21,15 @@ void remove_newline(char* str) {
     }
 }
 
-char* editor_is(File* file) {
-    char* response = (char*)malloc(MESSAGE_SIZE);
-    if (response == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(1);
-    }
-    snprintf(response, MESSAGE_SIZE, "%s", file->attendances[0]);
-    return response;
-}
+// char* editor_is(File* file) {
+//     char* response = (char*)malloc(MESSAGE_SIZE);
+//     if (response == NULL) {
+//         fprintf(stderr, "Memory allocation failed\n");
+//         exit(1);
+//     }
+//     snprintf(response, MESSAGE_SIZE, "%s", file->attendances[0]);
+//     return response;
+// }
 
 char* update_message(File *file, char* sender, char* message) {
     // Remove newline character from file->attendances[0] and sender
@@ -121,12 +121,13 @@ int join_file(File *file, const char *attendee) {
     return 0;
 }
 
-int leave_file(File *file, const char *attendee) {
+int leave_file(File *file, char *attendee) {
     int index = -1;
 
     for (int i = 0; i < file->num_attendees; i++) {
         // Remove newline characters from attendee name before comparison
         remove_newline(file->attendances[i]);
+        remove_newline(attendee);
         if (strcmp(file->attendances[i], attendee) == 0) {
             index = i;
             break;
@@ -138,6 +139,7 @@ int leave_file(File *file, const char *attendee) {
         return -1;
     }
 
+    printf("Attendee '%s' found at index %d.\n", attendee, index);
     for (int i = index; i < file->num_attendees - 1; i++) {
         strncpy(file->attendances[i], file->attendances[i + 1], ATTENDEE_NAME_SIZE - 1);
         file->attendances[i][ATTENDEE_NAME_SIZE - 1] = '\0';

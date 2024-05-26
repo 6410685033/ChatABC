@@ -1,11 +1,10 @@
-// server.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include "chat.c"
+#include "file.c"
 
 #define PORT 7777
 #define BUFFER_SIZE 1024
@@ -14,21 +13,27 @@
 #define MAX_CHAT 5
 #define MAX_CLIENTS 5
 
-// Client struct definition
 typedef struct {
     int socket;
-    char room[NAME_SIZE];
+    File* file;
     char username[BUFFER_SIZE];
 } Client;
 
-Client clients[MAX_CLIENTS];  // Array of clients
-int num_clients = 0;  // Track the number of connected clients
+Client clients[MAX_CLIENTS];
+int num_clients = 0;
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Chat room list and its length
-Chat* chat_list[MAX_CHAT] = {0};
+File* chat_list[MAX_CHAT] = {0};
 int chat_list_length = 0;
 
+File* find_chat(File* chat_list[], int chat_list_length, const char* chat_name) {
+    for (int i = 0; i < chat_list_length; i++) {
+        if (strcmp(chat_list[i]->file_name, chat_name) == 0) {
+            return chat_list[i];
+        }
+    }
+    return NULL;  // Return NULL if no chat room is found
+}
 
 void broadcast_message(const char *message) {
     pthread_mutex_lock(&clients_mutex);
@@ -36,6 +41,19 @@ void broadcast_message(const char *message) {
         if (send(clients[i].socket, message, strlen(message), 0) < 0) {
             perror("Broadcast failed");
             continue;
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+void broadcast_attendances(const char *message, File *file) {
+    pthread_mutex_lock(&clients_mutex);
+    for (int i = 0; i < num_clients; i++) {
+        if (clients[i].file != NULL && strcmp(clients[i].file->file_name, file->file_name) == 0) {
+            if (send(clients[i].socket, message, strlen(message), 0) < 0) {
+                perror("Broadcast failed");
+                continue;
+            }
         }
     }
     pthread_mutex_unlock(&clients_mutex);
@@ -90,8 +108,8 @@ char** decode(char* line) {
     return tokens;
 }
 
-char* response_list_room(Chat* chat_list[], int chat_list_length) {
-    char* response = (char*)malloc(BUFFER_SIZE * chat_list_length);
+char* response_list_room(File* chat_list[], int chat_list_length) {
+    char* response = (char*)malloc(BUFFER_SIZE);
     if (response == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         exit(1);
@@ -102,13 +120,13 @@ char* response_list_room(Chat* chat_list[], int chat_list_length) {
     char room_info[BUFFER_SIZE];
 
     for (int i = 0; i < chat_list_length; i++) {
-        char* chat_name = chat_list[i]->chat_name;
+        char* file_name = chat_list[i]->file_name;
         char* newline_pos;
-        while ((newline_pos = strchr(chat_name, '\n')) != NULL) {
+        while ((newline_pos = strchr(file_name, '\n')) != NULL) {
             *newline_pos = '\0';
         }
         
-        snprintf(room_info, sizeof(room_info), "%s", chat_name);
+        snprintf(room_info, sizeof(room_info), "%s", file_name);
         strcat(response, room_info);
         
         if (i < chat_list_length - 1) {
@@ -140,15 +158,28 @@ void* handle_client(void* arg) {
 
         printf("Command: %s\n", command[0]);
 
-        /* login command */
         if (strcmp(command[0], "login") == 0) {
+            pthread_mutex_lock(&clients_mutex);
+            for (int i = 0; i < num_clients; i++) {
+                if (clients[i].socket == newSd) {
+                    strncpy(clients[i].username, command[1], BUFFER_SIZE - 1);
+                    clients[i].username[BUFFER_SIZE - 1] = '\0';
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&clients_mutex);
             printf("%s %s\n", command[0], command[1]);
-
-        /* logout command */
         } else if (strcmp(command[0], "logout") == 0) {
+            pthread_mutex_lock(&clients_mutex);
+            for (int i = 0; i < num_clients; i++) {
+                if (clients[i].socket == newSd) {
+                    clients[i].file = NULL;
+                    clients[i].username[0] = '\0';
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&clients_mutex);
             printf("%s %s\n", command[0], command[1]);
-            
-        /* create command */
         } else if (strcmp(command[0], "create") == 0) {
             printf("Creating chat room...\n");
             if (command[1] == NULL) {
@@ -164,20 +195,14 @@ void* handle_client(void* arg) {
                 continue;
             }
 
-            chat_list[i] = malloc(sizeof(Chat));
+            chat_list[i] = malloc(sizeof(File));
             if (chat_list[i] == NULL) {
                 perror("Failed to allocate memory for new chat room");
                 continue;
             }
 
-            create_chat(chat_list[i], command[1]);
+            create_file(chat_list[i], command[1]);
             chat_list_length++;
-
-            char broadcast_msg[BUFFER_SIZE];
-            snprintf(broadcast_msg, sizeof(broadcast_msg), "New chat room created: %s\n", command[1]);
-            broadcast_message(broadcast_msg);
-            printf("Chat room created: %s\n", command[1]);
-            printf("Room created: %s\n", chat_list[i]->chat_name);
 
             char* response = response_list_room(chat_list, chat_list_length);
 
@@ -190,16 +215,72 @@ void* handle_client(void* arg) {
 
         } else if (strcmp(command[0], "join") == 0) {
             printf("Join chat room...\n");
-            // Implement join chat room logic
+
+            File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
+            if (current_chat != NULL) {
+                int result_join;
+                result_join = join_file(current_chat, command[2]);
+                if (result_join == 0) {
+                    pthread_mutex_lock(&clients_mutex);
+                    for (int i = 0; i < num_clients; i++) {
+                        if (strcmp(clients[i].username, command[2]) == 0) {
+                            clients[i].file = current_chat;
+                        }
+                    }
+                    pthread_mutex_unlock(&clients_mutex);
+                }
+                char* response = show_attendees(current_chat);
+
+                printf("Send response...\n");
+                printf("%s\n", response);
+
+                broadcast_attendances(response, current_chat);
+
+                free(response);
+            } else {
+                printf("Chat room not found.\n");
+            }
+
         } else if (strcmp(command[0], "leave") == 0) {
             printf("Leave chat room...\n");
-            // Implement leave chat room logic
+
+            File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
+            if (current_chat != NULL) {
+                leave_file(current_chat, command[2]);
+                char* response = show_attendees(current_chat);
+
+                printf("Send response...\n");
+                printf("%s\n", response);
+
+                broadcast_attendances(response, current_chat);
+
+                free(response);
+            } else {
+                printf("Chat room not found.\n");
+            }
+
         } else if (strcmp(command[0], "message") == 0) {
             printf("Message chat room...\n");
             // Implement message sending logic
+
         } else if (strcmp(command[0], "attendances") == 0) {
             printf("Attendances chat room...\n");
-            // Implement attendance checking logic
+            File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
+            if (current_chat != NULL) {
+                char* response = show_attendees(current_chat);
+
+                printf("Send response...\n");
+                printf("%s\n", response);
+
+                if (send(newSd, response, strlen(response), 0) < 0) {
+                    perror("Failed to send attendances");
+                }
+
+                free(response);
+            } else {
+                printf("Chat room not found.\n");
+            }
+
         } else if (strcmp(command[0], "list_rooms") == 0) {
             printf("Listing chat rooms...\n");
 
@@ -228,8 +309,6 @@ int main(int argc, char *argv[]) {
     int sd;
     struct sockaddr_in servAddr, cliAddr;
     socklen_t cliLen;
-
-    // Chat room list and its length are now global
 
     sd = socket(AF_INET, SOCK_STREAM, 0);
     if (sd < 0) {
@@ -264,7 +343,7 @@ int main(int argc, char *argv[]) {
         pthread_mutex_lock(&clients_mutex);
         if (num_clients < MAX_CLIENTS) {
             clients[num_clients].socket = *newSd;
-            strncpy(clients[num_clients].room, "", NAME_SIZE);
+            clients[num_clients].file = NULL;  // Initialize the file pointer
             strncpy(clients[num_clients].username, "", BUFFER_SIZE);
             num_clients++;
         } else {
@@ -277,8 +356,19 @@ int main(int argc, char *argv[]) {
         pthread_mutex_unlock(&clients_mutex);
 
         pthread_t tid;
-        if (pthread_create(&tid, NULL, handle_client, newSd) != 0) {
+        int *arg = malloc(sizeof(*arg));
+        if (arg == NULL) {
+            perror("Failed to allocate memory");
+            close(*newSd);
+            free(newSd);
+            continue;
+        }
+        *arg = *newSd;
+        if (pthread_create(&tid, NULL, handle_client, arg) != 0) {
             perror("Failed to create thread");
+            close(*newSd);
+            free(newSd);
+            free(arg);
         }
     }
 

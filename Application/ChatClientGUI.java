@@ -61,6 +61,17 @@ public class ChatClientGUI extends JFrame {
         System.out.println("handleServerResponse occur: " + response);
         if (response.startsWith("list_rooms")) {
             SwingUtilities.invokeLater(() -> updateChatRooms(response));
+        } else if (response.startsWith("attendances")) {
+            SwingUtilities.invokeLater(() -> updateAttendances(response));
+        }
+    }
+
+    private void updateAttendances(String attendancesResponse) {
+        System.out.println("updateAttendances occur: " + attendancesResponse);
+        String[] parts = attendancesResponse.split(" ");
+        currentParticipants.clear();
+        for (int i = 1; i < parts.length; i++) {
+            currentParticipants.add(parts[i]);
         }
     }
 

@@ -21,7 +21,6 @@ public class ChatClientGUI extends JFrame {
     private List<String> chatRooms;
     private String currentRoom;
     private List<String> currentParticipants;
-    // private String editor;
 
     private JPanel chatButtonPanel = new JPanel(new GridLayout(0, 1));
 
@@ -83,7 +82,8 @@ public class ChatClientGUI extends JFrame {
         for (int i = 1; i < parts.length; i++) {
             currentParticipants.add(parts[i]);
         }
-        messageField.setText(parts[1].toString().trim());
+        messageField.setText(parts[1].trim());
+        updateChatAreaEditability();
     }
 
     private void updateChatRooms(String roomsResponse) {
@@ -145,7 +145,6 @@ public class ChatClientGUI extends JFrame {
         setSize(500, 400);
 
         JPanel listPanel = new JPanel(new BorderLayout());
-        JScrollPane scrollPane = new JScrollPane(chatButtonPanel); // Only one JScrollPane
         JPanel topPanel = new JPanel(new BorderLayout());
         JButton createRoomButton = new JButton("Create New Room");
         JButton logoutButton = new JButton("Logout");
@@ -220,7 +219,7 @@ public class ChatClientGUI extends JFrame {
 
     private void showChatRoomPage() {
         chatArea = new JTextArea();
-        chatArea.setEditable(true);
+        chatArea.setEditable(false); // Initially set to false, will be updated later
         messageField = new JTextField();
         messageField.setEditable(false);
         JButton sendButton = new JButton("Send");
@@ -264,6 +263,17 @@ public class ChatClientGUI extends JFrame {
 
         setContentPane(chatPanel);
         setVisible(true);
+
+        // Update the chat area editability based on the initial messageField value
+        updateChatAreaEditability();
+    }
+
+    private void updateChatAreaEditability() {
+        if (messageField.getText().trim().equals(username)) {
+            chatArea.setEditable(true);
+        } else {
+            chatArea.setEditable(false);
+        }
     }
 
     public static void main(String[] args) {

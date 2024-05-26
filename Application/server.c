@@ -326,6 +326,23 @@ void* handle_client(void* arg) {
             } else {
                 printf("Chat room not found.\n");
             }
+        } else if (strcmp(command[0], "fetch_file") == 0) {
+            printf("fetch chat room...\n");
+
+            File* current_chat = find_chat(chat_list, chat_list_length, command[1]);
+            if (current_chat != NULL) {
+                char* response = current_chat->content;
+                printf("Send response...\n");
+                printf("%s\n", response);
+                broadcast_attendances(response, current_chat);
+
+                // Only free if response is dynamically allocated
+                if (strcmp(response, "Wait! you not the editor.") != 0) {
+                    free(response);
+                }
+            } else {
+                printf("Chat room not found.\n");
+            }
         } else if (strcmp(command[0], "attendances") == 0) {
             printf("Attendances chat room...\n");
             File* current_chat = find_chat(chat_list, chat_list_length, command[1]);

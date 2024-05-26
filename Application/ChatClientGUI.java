@@ -214,6 +214,7 @@ public class ChatClientGUI extends JFrame {
         currentParticipants.clear();
         writer.println("join " + currentRoom + " " + username);
         writer.println("editor " + currentRoom);
+        writer.println("fetch_file " + currentRoom);
         showChatRoomPage();
     }
 
